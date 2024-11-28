@@ -1,13 +1,14 @@
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+// Inscription d'un utilisateur
+async function register(email, password) {
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+    });
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-        alert('Erreur de connexion : ' + error.message);
+        alert('Erreur lors de l\'inscription : ' + error.message);
     } else {
-        window.location.href = 'dashboard.html';
+        alert('Inscription réussie ! Veuillez vérifier votre email pour confirmer votre compte.');
     }
-});
+}
 
