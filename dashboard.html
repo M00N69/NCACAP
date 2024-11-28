@@ -1,1 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <h1>Tableau de Bord</h1>
+        <form id="non-conformite-form">
+            <label>Objet :</label>
+            <input type="text" id="objet" required>
+            <label>Type :</label>
+            <select id="type">
+                <option>Qualité</option>
+                <option>Sécurité</option>
+                <option>Environnement</option>
+            </select>
+            <label>Description :</label>
+            <textarea id="description" required></textarea>
+            <label>Photos :</label>
+            <input type="file" id="photos" multiple>
+            <button type="button" onclick="submitNonConformite()" class="btn">Soumettre</button>
+        </form>
+        <div id="fiche-list"></div>
+    </div>
+    <script src="js/main.js"></script>
+    <script src="js/non_conformites.js"></script>
+</body>
+</html>
 
