@@ -4,9 +4,6 @@ import datetime
 import uuid
 import re
 
-# Configuration de la page Streamlit
-st.set_page_config(layout="wide", page_title="Gestion des Non-Conformités", page_icon="🛠️")
-
 # Initialisation de Supabase
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
@@ -96,6 +93,7 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
         st.error(f"Erreur lors de l'ajout de l'action corrective : {e}")
 
 # Interface utilisateur Streamlit
+st.set_page_config(layout="wide")
 st.title("🛠️ Système de Gestion des Non-Conformités")
 
 # Connexion
@@ -115,52 +113,72 @@ else:
     user = st.session_state.user
     is_admin = user["role"] == "admin"
 
-    # Organisation en onglets
-    tab1, tab2 = st.tabs(["📝 Soumettre une Non-Conformité", "📊 Tableau de Suivi"])
+    # Onglets
+    tabs = ["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"]
+    selected_tab = st.sidebar.radio("Navigation", tabs)
 
-    # Tab 1 : Formulaire d'enregistrement
-    with tab1:
-        st.header("📝 Enregistrer une Non-Conformité")
+    if selected_tab == "Accueil":
+        st.header("Bienvenue dans le Système de Gestion des Non-Conformités")
+        st.write("Utilisez les onglets pour naviguer dans l'application.")
+
+    elif selected_tab == "Soumettre une Non-Conformité":
+        st.header("📋 Soumettre une Non-Conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
             type = st.selectbox("Type", ["Qualité", "Sécurité", "Environnement"])
             description = st.text_area("Description")
             photos = st.file_uploader("Photos", accept_multiple_files=True, type=["png", "jpg", "jpeg"])
             submit_button = st.form_submit_button("Soumettre")
+            reset_button = st.form_submit_button("Réinitialiser")
 
             if submit_button:
                 if not objet or not type or not description:
                     st.error("Veuillez remplir tous les champs obligatoires.")
                 else:
                     submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
-                    st.experimental_rerun()  # Réinitialise le formulaire
 
-    # Tab 2 : Tableau de suivi
-    with tab2:
-        st.header("📊 Tableau de Suivi")
-        search = st.text_input("Rechercher par objet ou description")
+            if reset_button:
+                st.experimental_rerun()
+
+    elif selected_tab == "Tableau de Bord":
+        st.header("📊 Tableau de Bord des Non-Conformités")
+        filters = {"user_id": user["id"]} if not is_admin else {}
         response = supabase.table("non_conformites").select("*").execute()
-        non_conformities = response.data or []
+        non_conformities = response.data
 
-        # Filtrer les résultats
-        filtered_non_conformities = [
-            nc for nc in non_conformities if search.lower() in nc["objet"].lower() or search.lower() in nc["description"].lower()
-        ]
+        if non_conformities:
+            for nc in non_conformities:
+                with st.expander(nc["objet"]):
+                    st.write(f"**Type**: {nc['type']}")
+                    st.write(f"**Description**: {nc['description']}")
+                    st.write(f"**Statut**: {nc['status']}")
+                    if nc["photos"]:
+                        st.write("**Photos**:")
+                        for photo in nc["photos"]:
+                            st.image(photo, use_column_width=True)
 
-        for nc in filtered_non_conformities:
-            with st.expander(f"{nc['objet']} ({nc['type']}) - {nc['status']}"):
-                st.write(f"**Description**: {nc['description']}")
-                st.write(f"**Statut**: {nc['status']}")
-                if nc["photos"]:
-                    st.write("**Photos**:")
-                    for photo in nc["photos"]:
-                        st.image(photo, use_column_width=True)
+                    # Actions correctives associées
+                    corrective_actions = supabase.table("actions_correctives").select("*").eq("non_conformite_id", nc["id"]).execute().data
+                    if corrective_actions:
+                        st.write("**Actions Correctives**:")
+                        for action in corrective_actions:
+                            st.write(f"- {action['action']} (Responsable: {action['responsable']}, Échéance: {action['delai']})")
 
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    if st.button(f"Voir Détails {nc['id']}"):
-                        st.write(f"Détails de la non-conformité : {nc['objet']}")
-                with col2:
-                    if st.button(f"Éditer {nc['id']}"):
-                        st.write(f"Édition en cours pour : {nc['objet']}")
+                    # Ajout d'action corrective (administrateurs uniquement)
+                    if is_admin:
+                        st.subheader("Ajouter une Action Corrective")
+                        with st.form(f"corrective_form_{nc['id']}"):
+                            action = st.text_input("Action")
+                            delai = st.date_input("Échéance")
+                            responsable = st.text_input("Responsable")
+                            add_action_button = st.form_submit_button("Ajouter Action Corrective")
+                            if add_action_button:
+                                add_corrective_action(nc["id"], action, delai, responsable)
 
+    elif selected_tab == "Profil":
+        st.header("Profil Utilisateur")
+        st.write(f"**Email**: {user['email']}")
+        st.write(f"**Rôle**: {user['role']}")
+        if st.button("Déconnexion"):
+            st.session_state.user = None
+            st.experimental_rerun()
