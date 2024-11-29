@@ -87,9 +87,7 @@ if st.session_state.user is None:
         if user:
             st.session_state.user = user
             st.sidebar.success(f"Connecté en tant que {user['email']}")
-            st.experimental_set_query_params(logged_in="true")
-            # Redessiner la page
-            st.experimental_rerun()
+            # Pas de rerun nécessaire, la logique se poursuit naturellement
 else:
     # Continuer si l'utilisateur est connecté
     user = st.session_state.user
@@ -108,7 +106,7 @@ else:
     # Afficher les non-conformités
     st.header("Tableau de Bord des Non-Conformités")
     filters = {"user_id": user["id"]} if not is_admin else {}
-    response = supabase.table("non_conformites").select("*").filter(filters).execute()
+    response = supabase.table("non_conformites").select("*").execute()
     non_conformities = response.data
 
     if non_conformities:
