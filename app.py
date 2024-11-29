@@ -119,11 +119,11 @@ else:
     # Onglets
     tabs = st.tabs(["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"])
 
-    if tabs[0].selected:
+    with tabs[0]:
         st.header("Bienvenue dans le Système de Gestion des Non-Conformités")
         st.write("Utilisez les onglets pour naviguer dans l'application.")
 
-    elif tabs[1].selected:
+    with tabs[1]:
         st.header("📋 Soumettre une Non-Conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
@@ -143,7 +143,7 @@ else:
                 st.session_state.form_submitted = False  # Réinitialiser l'indicateur de formulaire soumis
                 st.experimental_rerun()  # Réexécuter l'application pour réinitialiser le formulaire
 
-    elif tabs[2].selected:
+    with tabs[2]:
         st.header("📊 Tableau de Bord des Non-Conformités")
         filters = {"user_id": user["id"]} if not is_admin else {}
         response = supabase.table("non_conformites").select("*").execute()
@@ -183,7 +183,7 @@ else:
                             if add_action_button:
                                 add_corrective_action(nc["id"], action, delai, responsable)
 
-    elif tabs[3].selected:
+    with tabs[3]:
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {user['role']}")
