@@ -113,14 +113,14 @@ else:
     user = st.session_state.user
     is_admin = user["role"] == "admin"
 
-    # Onglets
-    tabs = st.tabs(["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"])
+    # Boutons radio pour la navigation
+    selected_tab = st.sidebar.radio("Navigation", ["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"])
 
-    if tabs[0].selected:
+    if selected_tab == "Accueil":
         st.header("Bienvenue dans le Système de Gestion des Non-Conformités")
         st.write("Utilisez les onglets pour naviguer dans l'application.")
 
-    elif tabs[1].selected:
+    elif selected_tab == "Soumettre une Non-Conformité":
         st.header("📋 Soumettre une Non-Conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
@@ -139,7 +139,7 @@ else:
             if reset_button:
                 st.experimental_rerun()
 
-    elif tabs[2].selected:
+    elif selected_tab == "Tableau de Bord":
         st.header("📊 Tableau de Bord des Non-Conformités")
         filters = {"user_id": user["id"]} if not is_admin else {}
         response = supabase.table("non_conformites").select("*").execute()
@@ -178,7 +178,7 @@ else:
                             if add_action_button:
                                 add_corrective_action(nc["id"], action, delai, responsable)
 
-    elif tabs[3].selected:
+    elif selected_tab == "Profil":
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {user['role']}")
