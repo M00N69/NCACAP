@@ -49,15 +49,15 @@ def submit_non_conformity(user_id, objet, type, description, photos):
 
         try:
             # Téléversement vers Supabase Storage
-            response = supabase.storage.from_("photos").upload(file_path, file_data)
-            if not response.ok():  # Vérifier si l'opération a réussi
-                st.error(f"Erreur lors du téléversement de {photo.name}.")
-                continue
+            supabase.storage.from_("photos").upload(file_path, file_data)
             # Récupérer l'URL publique du fichier
-            public_url = supabase.storage.from_("photos").get_public_url(file_path).data.get("publicUrl")
-            photo_urls.append(public_url)
+            public_url = supabase.storage.from_("photos").get_public_url(file_path).get("publicUrl")
+            if public_url:
+                photo_urls.append(public_url)
+            else:
+                st.error(f"Erreur : Impossible de générer l'URL publique pour {photo.name}")
         except Exception as e:
-            st.error(f"Erreur inattendue lors du téléversement : {e}")
+            st.error(f"Erreur inattendue lors du téléversement de {photo.name} : {e}")
             return
 
     # Enregistrement dans la table `non_conformites`
@@ -161,4 +161,3 @@ else:
                         add_action_button = st.form_submit_button("Ajouter Action Corrective")
                         if add_action_button:
                             add_corrective_action(nc["id"], action, delai, responsable)
-
