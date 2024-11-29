@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client
 import datetime
 import uuid
+import re
 
 # Initialisation de Supabase
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -33,17 +34,17 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     photo_urls = []
     for photo in photos:
         # Générer un chemin unique pour chaque fichier
-        unique_name = f"{uuid.uuid4()}_{photo.name}"
+        unique_name = f"{uuid.uuid4()}_{re.sub(r'[^a-zA-Z0-9_.-]', '_', photo.name)}"
         file_path = f"photos/{unique_name}"
         file_data = photo.read()  # Lire le fichier en binaire
         try:
             # Téléversement vers Supabase Storage
             response = supabase.storage.from_("photos").upload(file_path, file_data)
-            if response.error:
-                st.error(f"Erreur lors du téléversement de {photo.name}: {response.error}")
+            if response.status_code != 200:
+                st.error(f"Erreur lors du téléversement de {photo.name}: {response.status_code} - {response.text}")
                 continue
             # Récupérer l'URL publique du fichier
-            public_url = supabase.storage.from_("photos").get_public_url(file_path).data.get("publicUrl")
+            public_url = supabase.storage.from_("photos").get_public_url(file_path)
             photo_urls.append(public_url)
         except Exception as e:
             st.error(f"Erreur inattendue lors du téléversement : {e}")
