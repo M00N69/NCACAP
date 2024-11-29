@@ -12,6 +12,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # Initialisation de l'état de session
 if "user" not in st.session_state:
     st.session_state.user = None
+if "form_submitted" not in st.session_state:
+    st.session_state.form_submitted = False
 
 # Fonction : Authentifier un utilisateur
 def authenticate_user(email, password):
@@ -73,6 +75,7 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     try:
         response = supabase.table("non_conformites").insert(data).execute()
         st.success("Non-conformité soumise avec succès !")
+        st.session_state.form_submitted = True  # Indicateur de formulaire soumis
     except Exception as e:
         st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
 
@@ -113,14 +116,14 @@ else:
     user = st.session_state.user
     is_admin = user["role"] == "admin"
 
-    # Boutons radio pour la navigation
-    selected_tab = st.sidebar.radio("Navigation", ["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"])
+    # Onglets
+    tabs = st.tabs(["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"])
 
-    if selected_tab == "Accueil":
+    if tabs[0].selected:
         st.header("Bienvenue dans le Système de Gestion des Non-Conformités")
         st.write("Utilisez les onglets pour naviguer dans l'application.")
 
-    elif selected_tab == "Soumettre une Non-Conformité":
+    elif tabs[1].selected:
         st.header("📋 Soumettre une Non-Conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
@@ -136,10 +139,11 @@ else:
                 else:
                     submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
 
-            if reset_button:
-                st.experimental_rerun()
+            if reset_button or st.session_state.form_submitted:
+                st.session_state.form_submitted = False  # Réinitialiser l'indicateur de formulaire soumis
+                st.experimental_rerun()  # Réexécuter l'application pour réinitialiser le formulaire
 
-    elif selected_tab == "Tableau de Bord":
+    elif tabs[2].selected:
         st.header("📊 Tableau de Bord des Non-Conformités")
         filters = {"user_id": user["id"]} if not is_admin else {}
         response = supabase.table("non_conformites").select("*").execute()
@@ -155,8 +159,9 @@ else:
                     if nc["photos"]:
                         col4.write("**Photos**:")
                         for photo in nc["photos"]:
-                            if col4.image(photo, use_column_width=True):
-                                st.image(photo, caption="Cliquez pour agrandir", use_column_width=True)
+                            if col4.image(photo, caption=nc["objet"], width=50):
+                                with st.expander("Voir la photo"):
+                                    st.image(photo, caption=nc["objet"], use_column_width=True)
                     col5.button("Éditer", key=f"edit_{nc['id']}")
                     col5.button("Voir", key=f"view_{nc['id']}")
 
@@ -178,7 +183,7 @@ else:
                             if add_action_button:
                                 add_corrective_action(nc["id"], action, delai, responsable)
 
-    elif selected_tab == "Profil":
+    elif tabs[3].selected:
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {user['role']}")
