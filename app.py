@@ -32,15 +32,21 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     photo_urls = []
     for photo in photos:
         file_path = f"photos/{photo.name}"
-        # Lire le fichier en binaire
-        file_data = photo.read()
-        response = supabase.storage.from_("photos").upload(file_path, file_data)
-        if response.error:
-            st.error(f"Erreur lors du téléversement de la photo : {response.error}")
+        file_data = photo.read()  # Lire le fichier en binaire
+        try:
+            # Téléversement vers Supabase Storage
+            response = supabase.storage.from_("photos").upload(file_path, file_data)
+            if response.error:
+                st.error(f"Erreur lors du téléversement de {photo.name}: {response.error}")
+                continue
+            # Récupérer l'URL publique du fichier
+            public_url = supabase.storage.from_("photos").get_public_url(file_path).data.get("publicUrl")
+            photo_urls.append(public_url)
+        except Exception as e:
+            st.error(f"Erreur inattendue lors du téléversement : {e}")
             return
-        public_url = supabase.storage.from_("photos").get_public_url(file_path).data["publicUrl"]
-        photo_urls.append(public_url)
 
+    # Enregistrement dans la table `non_conformites`
     data = {
         "user_id": user_id,
         "objet": objet,
@@ -52,7 +58,7 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     }
     response = supabase.table("non_conformites").insert(data).execute()
     if response.error:
-        st.error(f"Erreur lors de la soumission : {response.error}")
+        st.error(f"Erreur lors de l'insertion dans la base de données : {response.error}")
     else:
         st.success("Non-conformité soumise avec succès !")
 
@@ -75,9 +81,8 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
 # Interface utilisateur Streamlit
 st.title("Système de Gestion des Non-Conformités")
 
-# Vérification de la connexion
+# Connexion
 if st.session_state.user is None:
-    # Connexion
     st.sidebar.title("Connexion")
     with st.sidebar.form("login_form"):
         email = st.text_input("Email")
