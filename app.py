@@ -12,8 +12,6 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # Initialisation de l'état de session
 if "user" not in st.session_state:
     st.session_state.user = None
-if "form_submitted" not in st.session_state:
-    st.session_state.form_submitted = False
 
 # Fonction : Authentifier un utilisateur
 def authenticate_user(email, password):
@@ -61,7 +59,6 @@ def submit_non_conformity(user_id, objet, type, description, photos):
             "created_at": datetime.datetime.now().isoformat(),
         }).execute()
         st.success("Non-conformité soumise avec succès !")
-        st.session_state.form_submitted = True
     except Exception as e:
         st.error(f"Erreur lors de l'enregistrement : {e}")
 
@@ -117,23 +114,42 @@ else:
                     submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
                 else:
                     st.error("Veuillez remplir tous les champs obligatoires.")
-        if st.session_state.form_submitted:
-            st.session_state.form_submitted = False
-            st.experimental_rerun()
 
     with tabs[2]:
-        st.header("📊 Tableau de Bord")
+        st.header("📊 Tableau de Bord des Non-Conformités")
         try:
             response = supabase.table("non_conformites").select("*").execute()
             if response and response.data:
-                for nc in response.data:
-                    with st.expander(nc["objet"]):
-                        st.write(f"**Type**: {nc['type']}")
-                        st.write(f"**Description**: {nc['description']}")
-                        st.write(f"**Statut**: {nc['status']}")
+                non_conformities = response.data
+                st.write("### Liste des Non-Conformités")
+                for nc in non_conformities:
+                    col1, col2, col3, col4, col5 = st.columns([2, 2, 1, 1, 1])
+                    col1.write(f"**Objet:** {nc['objet']}")
+                    col2.write(f"**Description:** {nc['description']}")
+                    col3.write(f"**Type:** {nc['type']}")
+                    col4.write(f"**Statut:** {nc['status']}")
+                    with col5:
                         if nc["photos"]:
-                            for photo in nc["photos"]:
-                                st.image(photo, caption="Photo", width=100)
+                            st.image(nc["photos"][0], width=50)
+                        if st.button("Éditer", key=f"edit_{nc['id']}"):
+                            st.write(f"Modification en cours pour: {nc['objet']}")
+                        
+                    # Actions correctives
+                    corrective_actions = supabase.table("actions_correctives").select("*").eq("non_conformite_id", nc["id"]).execute()
+                    if corrective_actions and corrective_actions.data:
+                        st.write("#### Actions Correctives")
+                        for action in corrective_actions.data:
+                            st.write(f"- {action['action']} (Responsable: {action['responsable']}, Échéance: {action['delai']})")
+
+                    # Ajouter une nouvelle action corrective
+                    if is_admin:
+                        with st.form(f"corrective_action_form_{nc['id']}"):
+                            action = st.text_input("Nouvelle Action Corrective")
+                            delai = st.date_input("Échéance")
+                            responsable = st.text_input("Responsable")
+                            if st.form_submit_button("Ajouter Action"):
+                                add_corrective_action(nc["id"], action, delai, responsable)
+
         except Exception as e:
             st.error(f"Erreur lors du chargement : {e}")
 
@@ -144,3 +160,4 @@ else:
         if st.button("Déconnexion"):
             st.session_state.user = None
             st.experimental_rerun()
+
