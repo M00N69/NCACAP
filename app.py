@@ -32,7 +32,9 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     photo_urls = []
     for photo in photos:
         file_path = f"photos/{photo.name}"
-        response = supabase.storage.from_("photos").upload(file_path, photo)
+        # Lire le fichier en binaire
+        file_data = photo.read()
+        response = supabase.storage.from_("photos").upload(file_path, file_data)
         if response.error:
             st.error(f"Erreur lors du téléversement de la photo : {response.error}")
             return
@@ -87,7 +89,6 @@ if st.session_state.user is None:
         if user:
             st.session_state.user = user
             st.sidebar.success(f"Connecté en tant que {user['email']}")
-            # Pas de rerun nécessaire, la logique se poursuit naturellement
 else:
     # Continuer si l'utilisateur est connecté
     user = st.session_state.user
