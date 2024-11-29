@@ -114,14 +114,13 @@ else:
     is_admin = user["role"] == "admin"
 
     # Onglets
-    tabs = ["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"]
-    selected_tab = st.sidebar.radio("Navigation", tabs)
+    tabs = st.tabs(["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"])
 
-    if selected_tab == "Accueil":
+    if tabs[0].selected:
         st.header("Bienvenue dans le Système de Gestion des Non-Conformités")
         st.write("Utilisez les onglets pour naviguer dans l'application.")
 
-    elif selected_tab == "Soumettre une Non-Conformité":
+    elif tabs[1].selected:
         st.header("📋 Soumettre une Non-Conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
@@ -140,7 +139,7 @@ else:
             if reset_button:
                 st.experimental_rerun()
 
-    elif selected_tab == "Tableau de Bord":
+    elif tabs[2].selected:
         st.header("📊 Tableau de Bord des Non-Conformités")
         filters = {"user_id": user["id"]} if not is_admin else {}
         response = supabase.table("non_conformites").select("*").execute()
@@ -149,13 +148,17 @@ else:
         if non_conformities:
             for nc in non_conformities:
                 with st.expander(nc["objet"]):
-                    st.write(f"**Type**: {nc['type']}")
-                    st.write(f"**Description**: {nc['description']}")
-                    st.write(f"**Statut**: {nc['status']}")
+                    col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1, 1])
+                    col1.write(f"**Type**: {nc['type']}")
+                    col2.write(f"**Description**: {nc['description']}")
+                    col3.write(f"**Statut**: {nc['status']}")
                     if nc["photos"]:
-                        st.write("**Photos**:")
+                        col4.write("**Photos**:")
                         for photo in nc["photos"]:
-                            st.image(photo, use_column_width=True)
+                            if col4.image(photo, use_column_width=True):
+                                st.image(photo, caption="Cliquez pour agrandir", use_column_width=True)
+                    col5.button("Éditer", key=f"edit_{nc['id']}")
+                    col5.button("Voir", key=f"view_{nc['id']}")
 
                     # Actions correctives associées
                     corrective_actions = supabase.table("actions_correctives").select("*").eq("non_conformite_id", nc["id"]).execute().data
@@ -175,7 +178,7 @@ else:
                             if add_action_button:
                                 add_corrective_action(nc["id"], action, delai, responsable)
 
-    elif selected_tab == "Profil":
+    elif tabs[3].selected:
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {user['role']}")
