@@ -70,11 +70,11 @@ def submit_non_conformity(user_id, objet, type, description, photos):
         "status": "open",
         "created_at": datetime.datetime.now().isoformat(),
     }
-    response = supabase.table("non_conformites").insert(data).execute()
-    if response.error:
-        st.error(f"Erreur lors de l'insertion dans la base de données : {response.error}")
-    else:
+    try:
+        response = supabase.table("non_conformites").insert(data).execute()
         st.success("Non-conformité soumise avec succès !")
+    except Exception as e:
+        st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
 
 # Fonction : Ajouter une action corrective
 def add_corrective_action(non_conformite_id, action, delai, responsable):
@@ -86,11 +86,11 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
         "responsable": responsable,
         "created_at": datetime.datetime.now().isoformat(),
     }
-    response = supabase.table("actions_correctives").insert(data).execute()
-    if response.error:
-        st.error(f"Erreur lors de l'ajout de l'action corrective : {response.error}")
-    else:
+    try:
+        response = supabase.table("actions_correctives").insert(data).execute()
         st.success("Action corrective ajoutée avec succès !")
+    except Exception as e:
+        st.error(f"Erreur lors de l'ajout de l'action corrective : {e}")
 
 # Interface utilisateur Streamlit
 st.title("🛠️ Système de Gestion des Non-Conformités")
