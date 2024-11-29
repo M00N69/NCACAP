@@ -51,12 +51,15 @@ def fetch_table(table, filters=None):
 # Authentification
 def authenticate_user(email, password):
     """Authentifier un utilisateur et retourner ses données."""
-    response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-    user = handle_error(response)
-    if user:
-        user_details = fetch_user_details(user["user"]["id"])
-        if user_details:
+    try:
+        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        user = handle_error(response)
+        if user:
+            user_details = fetch_user_details(user["user"]["id"])
             return user_details
+    except Exception as e:
+        st.error("Email ou mot de passe invalide. Veuillez réessayer.")
+        st.write(f"Erreur d'authentification : {e}")
     return None
 
 # Soumettre une non-conformité
@@ -106,9 +109,12 @@ st.title("Système de Gestion des Non-Conformités")
 
 # Authentification via la barre latérale
 st.sidebar.title("Connexion")
-email = st.sidebar.text_input("Email")
-password = st.sidebar.text_input("Mot de passe", type="password")
-if st.sidebar.button("Connexion"):
+with st.sidebar.form("login_form"):
+    email = st.text_input("Email")
+    password = st.text_input("Mot de passe", type="password")
+    login_button = st.form_submit_button("Connexion")
+
+if login_button:
     user = authenticate_user(email, password)
     if user:
         st.session_state.user = user
@@ -185,4 +191,3 @@ if is_admin:
                 delai=delai,
                 responsable_id=responsable["id"]
             )
-
