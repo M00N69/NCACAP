@@ -28,23 +28,33 @@ def authenticate_user(email, password):
         st.error(f"Erreur lors de l'authentification : {e}")
         return None
 
+# Fonction : Nettoyer les noms de fichiers
+def sanitize_filename(filename):
+    """Nettoyer le nom du fichier pour éviter les erreurs de téléversement."""
+    filename = filename.replace(" ", "_")  # Remplacer les espaces par des underscores
+    filename = re.sub(r"[^\w\.-]", "", filename)  # Supprimer les caractères non autorisés
+    return filename
+
 # Fonction : Soumettre une non-conformité
 def submit_non_conformity(user_id, objet, type, description, photos):
     """Soumettre une non-conformité avec gestion des photos."""
     photo_urls = []
     for photo in photos:
-        # Générer un chemin unique pour chaque fichier
-        unique_name = f"{uuid.uuid4()}_{re.sub(r'[^a-zA-Z0-9_.-]', '_', photo.name)}"
+        # Nettoyer le nom du fichier
+        sanitized_name = sanitize_filename(photo.name)
+        # Générer un chemin unique
+        unique_name = f"{uuid.uuid4()}_{sanitized_name}"
         file_path = f"photos/{unique_name}"
         file_data = photo.read()  # Lire le fichier en binaire
+
         try:
             # Téléversement vers Supabase Storage
             response = supabase.storage.from_("photos").upload(file_path, file_data)
-            if response.status_code != 200:
-                st.error(f"Erreur lors du téléversement de {photo.name}: {response.status_code} - {response.text}")
+            if not response.ok():  # Vérifier si l'opération a réussi
+                st.error(f"Erreur lors du téléversement de {photo.name}.")
                 continue
             # Récupérer l'URL publique du fichier
-            public_url = supabase.storage.from_("photos").get_public_url(file_path)
+            public_url = supabase.storage.from_("photos").get_public_url(file_path).data.get("publicUrl")
             photo_urls.append(public_url)
         except Exception as e:
             st.error(f"Erreur inattendue lors du téléversement : {e}")
@@ -85,7 +95,7 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
 # Interface utilisateur Streamlit
 st.title("🛠️ Système de Gestion des Non-Conformités")
 
-# Vérification de la connexion
+# Connexion
 if st.session_state.user is None:
     st.sidebar.title("Connexion")
     with st.sidebar.form("login_form"):
@@ -151,3 +161,4 @@ else:
                         add_action_button = st.form_submit_button("Ajouter Action Corrective")
                         if add_action_button:
                             add_corrective_action(nc["id"], action, delai, responsable)
+
