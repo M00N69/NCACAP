@@ -51,7 +51,7 @@ def submit_non_conformity(user_id, objet, type, description, photos):
             # Téléversement vers Supabase Storage
             supabase.storage.from_("photos").upload(file_path, file_data)
             # Récupérer l'URL publique du fichier
-            public_url = supabase.storage.from_("photos").get_public_url(file_path).get("publicUrl")
+            public_url = supabase.storage.from_("photos").get_public_url(file_path)
             if public_url:
                 photo_urls.append(public_url)
             else:
