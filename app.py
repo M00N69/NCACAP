@@ -67,11 +67,15 @@ def submit_non_conformity(user_id, objet, type, description, photos):
 # Add Corrective Action
 def add_corrective_action(non_conformite_id, action, delai, responsable_id):
     """Add a corrective action for a non-conformity."""
+    if not action or not delai or not responsable_id:
+        st.error("All fields are mandatory!")
+        return
     data = {
         "non_conformite_id": non_conformite_id,
         "action": action,
         "delai": delai.isoformat(),
-        "responsable": responsable_id
+        "responsable": responsable_id,
+        "created_at": datetime.datetime.now().isoformat()
     }
     response = supabase.table('actions_correctives').insert(data).execute()
     if response.error:
@@ -131,6 +135,17 @@ if non_conformities:
         if nc["photos"]:
             for photo in nc["photos"]:
                 st.image(photo, use_column_width=True)
+
+        # Display corrective actions
+        corrective_actions = fetch_table("actions_correctives", {"non_conformite_id": nc["id"]})
+        if corrective_actions:
+            st.subheader("Corrective Actions")
+            for action in corrective_actions:
+                st.write(f"Action: {action['action']}")
+                st.write(f"Deadline: {action['delai']}")
+                st.write(f"Responsible User ID: {action['responsable']}")
+        else:
+            st.write("No corrective actions yet.")
 
 # Corrective Actions (Admins Only)
 if is_admin:
