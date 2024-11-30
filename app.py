@@ -76,6 +76,32 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
     except Exception as e:
         st.error(f"Erreur lors de l'ajout de l'action corrective : {e}")
 
+# CSS pour styliser les tableaux
+def inject_custom_css():
+    st.markdown(
+        """
+        <style>
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .styled-table th, .styled-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        .styled-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .styled-table tr:hover {
+            background-color: #ddd;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+inject_custom_css()
+
 # Interface utilisateur Streamlit
 st.set_page_config(layout="wide")
 st.title("🛠️ Système de Gestion des Non-Conformités")
@@ -96,7 +122,7 @@ else:
     is_admin = user.get("role") == "admin"
 
     # Onglets
-    tabs = st.tabs(["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"])
+    tabs = st.tabs(["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Calendrier", "Profil"])
 
     with tabs[0]:
         st.header("Bienvenue")
@@ -121,43 +147,29 @@ else:
             response = supabase.table("non_conformites").select("*").execute()
             if response and response.data:
                 non_conformities = response.data
-                st.write("### Liste des Non-Conformités")
                 for nc in non_conformities:
-                    col1, col2, col3, col4, col5 = st.columns([2, 2, 1, 1, 1])
-                    col1.write(f"**Objet:** {nc['objet']}")
-                    col2.write(f"**Description:** {nc['description']}")
-                    col3.write(f"**Type:** {nc['type']}")
-                    col4.write(f"**Statut:** {nc['status']}")
-                    with col5:
-                        if nc["photos"]:
-                            st.image(nc["photos"][0], width=50)
-                        if st.button("Éditer", key=f"edit_{nc['id']}"):
-                            st.write(f"Modification en cours pour: {nc['objet']}")
-                        
-                    # Actions correctives
-                    corrective_actions = supabase.table("actions_correctives").select("*").eq("non_conformite_id", nc["id"]).execute()
-                    if corrective_actions and corrective_actions.data:
-                        st.write("#### Actions Correctives")
-                        for action in corrective_actions.data:
-                            st.write(f"- {action['action']} (Responsable: {action['responsable']}, Échéance: {action['delai']})")
-
-                    # Ajouter une nouvelle action corrective
-                    if is_admin:
-                        with st.form(f"corrective_action_form_{nc['id']}"):
-                            action = st.text_input("Nouvelle Action Corrective")
-                            delai = st.date_input("Échéance")
-                            responsable = st.text_input("Responsable")
-                            if st.form_submit_button("Ajouter Action"):
-                                add_corrective_action(nc["id"], action, delai, responsable)
+                    st.markdown(
+                        f"""
+                        <table class="styled-table">
+                        <tr><th>Objet</th><td>{nc['objet']}</td></tr>
+                        <tr><th>Type</th><td>{nc['type']}</td></tr>
+                        <tr><th>Description</th><td>{nc['description']}</td></tr>
+                        </table>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
         except Exception as e:
             st.error(f"Erreur lors du chargement : {e}")
 
     with tabs[3]:
+        st.header("📅 Calendrier des Actions Correctives")
+        st.write("En construction.")
+
+    with tabs[4]:
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {user['role']}")
         if st.button("Déconnexion"):
             st.session_state.user = None
             st.experimental_rerun()
-
