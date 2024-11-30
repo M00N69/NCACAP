@@ -4,6 +4,9 @@ import datetime
 import uuid
 import re
 
+# Configuration Streamlit (mode wide)
+st.set_page_config(page_title="Gestion des Non-Conformités", layout="wide")
+
 # Initialisation de Supabase
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
@@ -74,6 +77,7 @@ def submit_non_conformity(user_id, objet, type, description, photos):
 st.title("🛠️ Système de Gestion des Non-Conformités")
 
 if st.session_state.user is None:
+    # Page de connexion
     st.sidebar.title("Connexion")
     with st.sidebar.form("login_form"):
         email = st.text_input("Email")
@@ -89,10 +93,11 @@ else:
     user = st.session_state.user
     is_admin = user["role"] == "admin"
 
-    # Navigation par dropdown
+    # Navigation dans la barre latérale
     menu = st.sidebar.selectbox("Navigation", ["Fiche de Non-Conformité", "Tableau de Bord", "Profil"])
 
     if menu == "Fiche de Non-Conformité":
+        # Soumission de non-conformité
         st.header("📋 Soumettre une Non-Conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
@@ -108,31 +113,63 @@ else:
                     submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
 
     elif menu == "Tableau de Bord":
+        # Tableau de bord
         st.header("📊 Tableau de Bord des Non-Conformités")
-    
+
         # Récupération des non-conformités
         if is_admin:
             response = supabase.table("non_conformites").select("*").execute()  # Tous les enregistrements pour les admins
         else:
             response = supabase.table("non_conformites").select("*").eq("user_id", user["id"]).execute()  # Seulement ceux de l'utilisateur
-    
+
         non_conformities = response.data
-    
+
         if non_conformities:
             st.write("### Liste des Non-Conformités")
             
             # Construction du tableau
             table_html = """
-            <table style="width: 100%; border-collapse: collapse;">
+            <style>
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: center;
+                }
+                th {
+                    background-color: #f4f4f4;
+                    font-weight: bold;
+                }
+                img {
+                    width: 80px;
+                    height: auto;
+                    margin: 5px;
+                }
+                button {
+                    background-color: #007BFF;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }
+                button:hover {
+                    background-color: #0056b3;
+                }
+            </style>
+            <table>
                 <thead>
-                    <tr style="background-color: #f4f4f4;">
-                        <th style="border: 1px solid #ddd; padding: 8px;">Objet</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">Type</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">Description</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">Statut</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">Créé le</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">Photos</th>
-                        <th style="border: 1px solid #ddd; padding: 8px;">Actions</th>
+                    <tr>
+                        <th>Objet</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Statut</th>
+                        <th>Créé le</th>
+                        <th>Photos</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -141,34 +178,36 @@ else:
                 photo_html = ""
                 if "photos" in nc and nc["photos"]:  # Vérifie s'il y a des photos
                     for photo_url in nc["photos"]:
-                        photo_html += f"<img src='{photo_url}' style='width: 80px; height: 80px; margin: 5px;' />"
-    
+                        photo_html += f"<img src='{photo_url}' alt='Photo' />"
+
                 # Ligne de tableau
                 table_html += f"""
                     <tr>
-                        <td style="border: 1px solid #ddd; padding: 8px;">{nc['objet']}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">{nc['type']}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">{nc['description']}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">{nc['status']}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">{nc['created_at']}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">{photo_html}</td>
-                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                        <td>{nc['objet']}</td>
+                        <td>{nc['type']}</td>
+                        <td>{nc['description']}</td>
+                        <td>{nc['status']}</td>
+                        <td>{nc['created_at']}</td>
+                        <td>{photo_html}</td>
+                        <td>
                             <button onclick="alert('Édition de la non-conformité {nc['id']}')">✏️ Éditer</button>
                         </td>
                     </tr>
                 """
-    
+
             table_html += "</tbody></table>"
-    
+
             # Affichage du tableau HTML
             st.markdown(table_html, unsafe_allow_html=True)
         else:
             st.info("Aucune non-conformité trouvée.")
 
     elif menu == "Profil":
+        # Page de profil
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {'Administrateur' if is_admin else 'Utilisateur Standard'}")
         if st.button("Déconnexion"):
             st.session_state.user = None
             st.experimental_rerun()
+
