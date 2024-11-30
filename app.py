@@ -3,8 +3,6 @@ from supabase import create_client
 import datetime
 import uuid
 import re
-import pandas as pd
-import numpy as np
 
 # Configuration Streamlit (mode wide)
 st.set_page_config(page_title="Gestion des Non-Conformités", layout="wide")
@@ -129,27 +127,68 @@ else:
         if non_conformities:
             st.write("### Liste des Non-Conformités")
 
-            data = []
+            # Style CSS pour le tableau
+            table_css = """
+            <style>
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 20px;
+                }
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 10px;
+                    text-align: center;
+                }
+                th {
+                    background-color: #f4f4f4;
+                    font-weight: bold;
+                }
+                img {
+                    width: 80px;
+                    height: auto;
+                    margin: 5px;
+                }
+                .edit-button {
+                    background-color: #007BFF;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }
+                .edit-button:hover {
+                    background-color: #0056b3;
+                }
+            </style>
+            """
+
+            # Début du tableau
+            table_html = "<table><thead><tr>"
+            table_html += "<th>Objet</th><th>Type</th><th>Description</th><th>Statut</th><th>Créé le</th><th>Photos</th><th>Actions</th></tr></thead><tbody>"
+
             for nc in non_conformities:
-                photo_urls = nc.get("photos", [])
-                data.append(
-                    {
-                        "Objet": nc["objet"],
-                        "Type": nc["type"],
-                        "Description": nc["description"],
-                        "Statut": nc["status"],
-                        "Créé le": nc["created_at"],
-                        "Photos": photo_urls[0] if photo_urls else None,
-                        "Actions": f"Éditer | Supprimer"
-                    }
-                )
+                photo_html = ""
+                if "photos" in nc and nc["photos"]:
+                    for photo_url in nc["photos"]:
+                        photo_html += f"<img src='{photo_url}' alt='Photo' />"
 
-            df = pd.DataFrame(data)
-            config = {
-                "Photos": st.column_config.ImageColumn(),
-            }
+                table_html += f"""
+                <tr>
+                    <td>{nc['objet']}</td>
+                    <td>{nc['type']}</td>
+                    <td>{nc['description']}</td>
+                    <td>{nc['status']}</td>
+                    <td>{nc['created_at']}</td>
+                    <td>{photo_html}</td>
+                    <td><button class="edit-button" onclick="alert('Modifier {nc['id']}')">✏️ Éditer</button></td>
+                </tr>
+                """
 
-            st.dataframe(df, column_config=config, height=600)
+            table_html += "</tbody></table>"
+
+            # Afficher le tableau avec CSS
+            st.markdown(table_css + table_html, unsafe_allow_html=True)
         else:
             st.info("Aucune non-conformité trouvée.")
 
