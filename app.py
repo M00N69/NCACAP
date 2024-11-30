@@ -4,6 +4,7 @@ import datetime
 import uuid
 import re
 import pandas as pd
+import numpy as np
 
 # Configuration Streamlit (mode wide)
 st.set_page_config(page_title="Gestion des Non-Conformités", layout="wide")
@@ -128,12 +129,26 @@ else:
         if non_conformities:
             st.write("### Liste des Non-Conformités")
 
-            # Création d'un DataFrame pour afficher les non-conformités
-            df = pd.DataFrame(non_conformities)
-            df['photos'] = df['photos'].apply(lambda x: ', '.join(x) if x else '')
-            df['created_at'] = pd.to_datetime(df['created_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
+            data = []
+            for nc in non_conformities:
+                photo_urls = nc.get("photos", [])
+                data.append(
+                    {
+                        "Objet": nc["objet"],
+                        "Type": nc["type"],
+                        "Description": nc["description"],
+                        "Statut": nc["status"],
+                        "Créé le": nc["created_at"],
+                        "Photos": photo_urls[0] if photo_urls else None,
+                    }
+                )
 
-            st.dataframe(df[['objet', 'type', 'description', 'status', 'created_at', 'photos']])
+            df = pd.DataFrame(data)
+            config = {
+                "Photos": st.column_config.ImageColumn(),
+            }
+
+            st.dataframe(df, column_config=config)
         else:
             st.info("Aucune non-conformité trouvée.")
 
