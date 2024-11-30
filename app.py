@@ -28,11 +28,6 @@ def authenticate_user(email, password):
         st.error(f"Erreur lors de l'authentification : {e}")
     return None
 
-# Fonction : Nettoyer les noms de fichiers
-def sanitize_filename(filename):
-    filename = filename.replace(" ", "_")
-    return re.sub(r"[^\w\.-]", "", filename)
-
 # Fonction : Charger les non-conformités
 def load_non_conformities(user_id=None, is_admin=False):
     try:
@@ -55,14 +50,6 @@ def load_corrective_actions(non_conformite_id):
         st.error(f"Erreur lors du chargement des actions correctives : {e}")
         return []
 
-# Fonction : Soumettre une mise à jour
-def update_non_conformity(non_conformity_id, updated_data):
-    try:
-        supabase.table("non_conformites").update(updated_data).eq("id", non_conformity_id).execute()
-        st.success("Non-conformité mise à jour avec succès !")
-    except Exception as e:
-        st.error(f"Erreur lors de la mise à jour : {e}")
-
 # Fonction : Ajouter une action corrective
 def add_corrective_action(non_conformite_id, action, delai, responsable):
     try:
@@ -77,7 +64,7 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
     except Exception as e:
         st.error(f"Erreur lors de l'ajout de l'action corrective : {e}")
 
-# CSS pour styliser les tableaux et miniatures
+# CSS pour styliser les tableaux
 def inject_custom_css():
     st.markdown(
         """
@@ -91,11 +78,13 @@ def inject_custom_css():
         }
         .styled-table th, .styled-table td {
             border: 1px solid #ddd;
+            text-align: left;
             padding: 8px;
+            vertical-align: top;
         }
         .styled-table th {
             background-color: #f4f4f4;
-            text-align: left;
+            font-weight: bold;
         }
         .styled-table tr:nth-child(even) {
             background-color: #f9f9f9;
@@ -104,8 +93,20 @@ def inject_custom_css():
             background-color: #f1f1f1;
         }
         .thumbnail {
-            width: 60px;
+            width: 80px;
             cursor: pointer;
+        }
+        .action-buttons button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .action-buttons button:hover {
+            background-color: #0056b3;
         }
         </style>
         """,
@@ -136,44 +137,46 @@ else:
 
     # Affichage des non-conformités
     st.header("📊 Tableau des Non-Conformités")
-    st.markdown("<table class='styled-table'>", unsafe_allow_html=True)
-    st.markdown(
-        """
-        <tr>
-            <th>Objet</th>
-            <th>Description</th>
-            <th>Type</th>
-            <th>Statut</th>
-            <th>Photos</th>
-            <th>Actions</th>
-        </tr>
-        """,
-        unsafe_allow_html=True,
-    )
-    for nc in non_conformities:
-        st.markdown("<tr>", unsafe_allow_html=True)
-        st.markdown(f"<td>{nc['objet']}</td>", unsafe_allow_html=True)
-        st.markdown(f"<td>{nc['description']}</td>", unsafe_allow_html=True)
-        st.markdown(f"<td>{nc['type']}</td>", unsafe_allow_html=True)
-        st.markdown(f"<td>{nc['status']}</td>", unsafe_allow_html=True)
+    if non_conformities:
+        st.markdown("<table class='styled-table'>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <tr>
+                <th>Objet</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Photos</th>
+                <th>Actions</th>
+            </tr>
+            """,
+            unsafe_allow_html=True,
+        )
+        for nc in non_conformities:
+            photo_html = ""
+            if "photos" in nc and nc["photos"]:
+                for photo_url in nc["photos"]:
+                    photo_html += f"<img src='{photo_url}' class='thumbnail' onclick='window.open(\"{photo_url}\", \"_blank\")'>"
 
-        # Miniatures cliquables
-        photo_html = ""
-        if "photos" in nc and nc["photos"]:
-            for photo_url in nc["photos"]:
-                photo_html += f"<img src='{photo_url}' class='thumbnail' onclick='window.open(\"{photo_url}\", \"_blank\")'>"
-        st.markdown(f"<td>{photo_html}</td>", unsafe_allow_html=True)
-
-        # Boutons d'édition
-        action_buttons = f"""
-        <td>
-            <button onclick='alert("Édition non-conformité {nc['id']}")'>✏️ Éditer</button>
-            <button onclick='alert("Ajout action corrective {nc['id']}")'>➕ Action</button>
-        </td>
-        """
-        st.markdown(action_buttons, unsafe_allow_html=True)
-        st.markdown("</tr>", unsafe_allow_html=True)
-    st.markdown("</table>", unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <tr>
+                    <td>{nc['objet']}</td>
+                    <td>{nc['description']}</td>
+                    <td>{nc['type']}</td>
+                    <td>{nc['status']}</td>
+                    <td>{photo_html}</td>
+                    <td class="action-buttons">
+                        <button onclick='alert("Édition de la non-conformité {nc['id']}")'>✏️ Éditer</button>
+                        <button onclick='alert("Ajout d'action corrective pour {nc['id']}")'>➕ Action</button>
+                    </td>
+                </tr>
+                """,
+                unsafe_allow_html=True,
+            )
+        st.markdown("</table>", unsafe_allow_html=True)
+    else:
+        st.info("Aucune non-conformité trouvée.")
 
     if st.button("Déconnexion"):
         st.session_state.user = None
