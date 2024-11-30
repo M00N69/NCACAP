@@ -16,6 +16,9 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 if "user" not in st.session_state:
     st.session_state.user = None
 
+if "edit_mode" not in st.session_state:
+    st.session_state.edit_mode = False
+
 # Fonction : Authentifier un utilisateur
 def authenticate_user(email, password):
     """Vérifier les identifiants dans la table `users`."""
@@ -31,32 +34,21 @@ def authenticate_user(email, password):
         st.error(f"Erreur lors de l'authentification : {e}")
         return None
 
-# Fonction : Nettoyer les noms de fichiers
-def sanitize_filename(filename):
-    """Nettoyer le nom du fichier pour éviter les erreurs de téléversement."""
-    filename = filename.replace(" ", "_")
-    filename = re.sub(r"[^\w\.-]", "", filename)
-    return filename
-
 # Fonction : Soumettre une non-conformité
 def submit_non_conformity(user_id, objet, type, description, photos):
     """Soumettre une non-conformité avec gestion des photos."""
     photo_urls = []
     for photo in photos:
-        sanitized_name = sanitize_filename(photo.name)
+        sanitized_name = photo.name.replace(" ", "_")
         unique_name = f"{uuid.uuid4()}_{sanitized_name}"
         file_path = f"photos/{unique_name}"
         file_data = photo.read()
         try:
             supabase.storage.from_("photos").upload(file_path, file_data)
             public_url = supabase.storage.from_("photos").get_public_url(file_path)
-            if public_url:
-                photo_urls.append(public_url)
-            else:
-                st.error(f"Erreur : Impossible de générer l'URL publique pour {photo.name}")
+            photo_urls.append(public_url)
         except Exception as e:
-            st.error(f"Erreur inattendue lors du téléversement de {photo.name} : {e}")
-            return
+            st.error(f"Erreur lors du téléversement de {photo.name} : {e}")
 
     data = {
         "user_id": user_id,
@@ -97,7 +89,6 @@ else:
     menu = st.sidebar.selectbox("Navigation", ["Fiche de Non-Conformité", "Tableau de Bord", "Profil"])
 
     if menu == "Fiche de Non-Conformité":
-        # Soumission de non-conformité
         st.header("📋 Soumettre une Non-Conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
@@ -113,76 +104,52 @@ else:
                     submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
 
     elif menu == "Tableau de Bord":
-        # Tableau de bord
         st.header("📊 Tableau de Bord des Non-Conformités")
-
-        # Récupération des non-conformités
-        if is_admin:
-            response = supabase.table("non_conformites").select("*").execute()  # Tous les enregistrements pour les admins
-        else:
-            response = supabase.table("non_conformites").select("*").eq("user_id", user["id"]).execute()  # Seulement ceux de l'utilisateur
-
+        # Récupérer les non-conformités
+        response = supabase.table("non_conformites").select("*").eq("user_id", user["id"]).execute() if not is_admin else supabase.table("non_conformites").select("*").execute()
         non_conformities = response.data
 
         if non_conformities:
-            st.write("### Liste des Non-Conformités")
-
-            # Affichage dynamique des non-conformités sous forme de cartes
             for nc in non_conformities:
                 st.markdown("---")
                 st.markdown(
                     f"""
                     <div style="border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #f9f9f9;">
-                        <h4>{nc['objet']} ({nc['type']})</h4>
-                        <p><strong>Description :</strong> {nc['description']}</p>
-                        <p><strong>Statut :</strong> {nc['status']}</p>
-                        <p><strong>Créé le :</strong> {nc['created_at']}</p>
-                        <div>
-                            {"".join([f"<img src='{url}' style='width: 80px; margin-right: 10px; border-radius: 5px;'>" for url in nc['photos']])}
-                        </div>
+                        <h4 style="font-size: 20px;">{nc['objet']} ({nc['type']})</h4>
+                        <p style="font-size: 16px;"><strong>Description :</strong> {nc['description']}</p>
+                        <p style="font-size: 16px;"><strong>Statut :</strong> {nc['status']}</p>
+                        <p style="font-size: 16px;"><strong>Créé le :</strong> {nc['created_at']}</p>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
+                # Miniatures des photos
+                st.markdown("**Photos :**")
+                for photo_url in nc["photos"]:
+                    if st.button(f"Voir {photo_url}", key=f"photo_{photo_url}"):
+                        st.image(photo_url, use_column_width=True)
 
                 # Actions Correctives
-                st.markdown("#### Actions Correctives")
+                st.markdown("**Actions Correctives :**")
                 actions = supabase.table("actions_correctives").select("*").eq("non_conformite_id", nc["id"]).execute().data
                 if actions:
                     for action in actions:
                         st.write(f"- **Action**: {action['action']} (Responsable: {action['responsable']}, Échéance: {action['delai']})")
                 else:
-                    st.info("Aucune action corrective enregistrée.")
+                    st.info("Aucune action corrective.")
 
-                # Boutons d'action
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button(f"✏️ Éditer - {nc['id']}"):
-                        st.info(f"Formulaire d'édition pour {nc['objet']} non implémenté.")
-                with col2:
-                    if st.button(f"➕ Ajouter une Action Corrective - {nc['id']}"):
-                        with st.form(f"add_action_{nc['id']}"):
-                            new_action = st.text_input("Nouvelle Action")
-                            responsable = st.text_input("Responsable")
-                            due_date = st.date_input("Échéance")
-                            submit_action = st.form_submit_button("Enregistrer")
-                            if submit_action:
-                                # Sauvegarde de l'action corrective
-                                supabase.table("actions_correctives").insert({
-                                    "non_conformite_id": nc["id"],
-                                    "action": new_action,
-                                    "responsable": responsable,
-                                    "delai": due_date.isoformat(),
-                                    "created_at": datetime.datetime.utcnow().isoformat()
-                                }).execute()
-                                st.success("Action corrective ajoutée avec succès !")
-        else:
-            st.info("Aucune non-conformité trouvée.")
-
-    elif menu == "Profil":
-        st.header("Profil Utilisateur")
-        st.write(f"**Email**: {user['email']}")
-        st.write(f"**Rôle**: {'Administrateur' if is_admin else 'Utilisateur Standard'}")
-        if st.button("Déconnexion"):
-            st.session_state.user = None
-            st.experimental_rerun()
+                # Boutons pour chaque carte
+                if st.button(f"✏️ Éditer {nc['objet']}", key=f"edit_{nc['id']}"):
+                    st.session_state.edit_mode = True
+                    st.markdown("### Formulaire d'Édition")
+                    edited_objet = st.text_input("Objet", value=nc["objet"])
+                    edited_description = st.text_area("Description", value=nc["description"])
+                    edited_status = st.selectbox("Statut", ["open", "closed"], index=["open", "closed"].index(nc["status"]))
+                    if st.button("Enregistrer les modifications"):
+                        # Mettre à jour la non-conformité
+                        supabase.table("non_conformites").update({
+                            "objet": edited_objet,
+                            "description": edited_description,
+                            "status": edited_status
+                        }).eq("id", nc["id"]).execute()
+                        st.success("Modifications enregistrées.")
