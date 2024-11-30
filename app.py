@@ -64,6 +64,47 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
     except Exception as e:
         st.error(f"Erreur lors de l'ajout de l'action corrective : {e}")
 
+# Fonction : Nettoyer les noms de fichiers
+def sanitize_filename(filename):
+    """Nettoyer le nom du fichier pour éviter les erreurs de téléversement."""
+    filename = filename.replace(" ", "_")  # Remplacer les espaces par des underscores
+    filename = re.sub(r"[^\w\.-]", "", filename)  # Supprimer les caractères non autorisés
+    return filename
+
+# Fonction : Soumettre une non-conformité
+def submit_non_conformity(user_id, objet, type, description, photos):
+    """Soumettre une non-conformité avec gestion des photos."""
+    photo_urls = []
+    for photo in photos:
+        sanitized_name = sanitize_filename(photo.name)
+        unique_name = f"{uuid.uuid4()}_{sanitized_name}"
+        file_path = f"photos/{unique_name}"
+        file_data = photo.read()
+        try:
+            supabase.storage.from_("photos").upload(file_path, file_data)
+            public_url = supabase.storage.from_("photos").get_public_url(file_path)
+            if public_url:
+                photo_urls.append(public_url)
+            else:
+                st.error(f"Erreur : Impossible de générer l'URL publique pour {photo.name}")
+        except Exception as e:
+            st.error(f"Erreur inattendue lors du téléversement de {photo.name} : {e}")
+
+    data = {
+        "user_id": user_id,
+        "objet": objet,
+        "type": type,
+        "description": description,
+        "photos": photo_urls,
+        "status": "open",
+        "created_at": datetime.datetime.now().isoformat(),
+    }
+    try:
+        supabase.table("non_conformites").insert(data).execute()
+        st.success("Non-conformité soumise avec succès !")
+    except Exception as e:
+        st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
+
 # CSS pour styliser les tableaux
 def inject_custom_css():
     st.markdown(
@@ -153,37 +194,7 @@ else:
                 if not objet or not type or not description:
                     st.error("Veuillez remplir tous les champs obligatoires.")
                 else:
-                    photo_urls = []
-                    for photo in photos:
-                        sanitized_name = sanitize_filename(photo.name)
-                        unique_name = f"{uuid.uuid4()}_{sanitized_name}"
-                        file_path = f"photos/{unique_name}"
-                        file_data = photo.read()
-                        try:
-                            supabase.storage.from_("photos").upload(file_path, file_data)
-                            public_url = supabase.storage.from_("photos").get_public_url(file_path)
-                            if public_url:
-                                photo_urls.append(public_url)
-                            else:
-                                st.error(f"Erreur : Impossible de générer l'URL publique pour {photo.name}")
-                        except Exception as e:
-                            st.error(f"Erreur inattendue lors du téléversement de {photo.name} : {e}")
-                            return
-
-                    data = {
-                        "user_id": user["id"],
-                        "objet": objet,
-                        "type": type,
-                        "description": description,
-                        "photos": photo_urls,
-                        "status": "open",
-                        "created_at": datetime.datetime.now().isoformat(),
-                    }
-                    try:
-                        supabase.table("non_conformites").insert(data).execute()
-                        st.success("Non-conformité soumise avec succès !")
-                    except Exception as e:
-                        st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
+                    submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
 
             if reset_button:
                 st.session_state.form_submitted = False
