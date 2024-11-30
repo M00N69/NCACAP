@@ -31,8 +31,8 @@ def authenticate_user(email, password):
 # Fonction : Nettoyer les noms de fichiers
 def sanitize_filename(filename):
     """Nettoyer le nom du fichier pour éviter les erreurs de téléversement."""
-    filename = filename.replace(" ", "_")
-    filename = re.sub(r"[^\w\.-]", "", filename)
+    filename = filename.replace(" ", "_")  # Remplacer les espaces par des underscores
+    filename = re.sub(r"[^\w\.-]", "", filename)  # Supprimer les caractères non autorisés
     return filename
 
 # Fonction : Soumettre une non-conformité
@@ -40,12 +40,17 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     """Soumettre une non-conformité avec gestion des photos."""
     photo_urls = []
     for photo in photos:
+        # Nettoyer le nom du fichier
         sanitized_name = sanitize_filename(photo.name)
+        # Générer un chemin unique
         unique_name = f"{uuid.uuid4()}_{sanitized_name}"
         file_path = f"photos/{unique_name}"
-        file_data = photo.read()
+        file_data = photo.read()  # Lire le fichier en binaire
+
         try:
+            # Téléversement vers Supabase Storage
             supabase.storage.from_("photos").upload(file_path, file_data)
+            # Récupérer l'URL publique du fichier
             public_url = supabase.storage.from_("photos").get_public_url(file_path)
             if public_url:
                 photo_urls.append(public_url)
@@ -55,6 +60,7 @@ def submit_non_conformity(user_id, objet, type, description, photos):
             st.error(f"Erreur inattendue lors du téléversement de {photo.name} : {e}")
             return
 
+    # Enregistrement dans la table `non_conformites`
     data = {
         "user_id": user_id,
         "objet": objet,
@@ -62,10 +68,10 @@ def submit_non_conformity(user_id, objet, type, description, photos):
         "description": description,
         "photos": photo_urls,
         "status": "open",
-        "created_at": datetime.datetime.utcnow().isoformat(),
+        "created_at": datetime.datetime.now().isoformat(),
     }
     try:
-        supabase.table("non_conformities").insert(data).execute()
+        response = supabase.table("non_conformites").insert(data).execute()
         st.success("Non-conformité soumise avec succès !")
     except Exception as e:
         st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
@@ -78,10 +84,10 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
         "action": action,
         "delai": delai.isoformat(),
         "responsable": responsable,
-        "created_at": datetime.datetime.utcnow().isoformat(),
+        "created_at": datetime.datetime.now().isoformat(),
     }
     try:
-        supabase.table("actions_correctives").insert(data).execute()
+        response = supabase.table("actions_correctives").insert(data).execute()
         st.success("Action corrective ajoutée avec succès !")
     except Exception as e:
         st.error(f"Erreur lors de l'ajout de l'action corrective : {e}")
@@ -123,7 +129,8 @@ else:
 
     # Affichage des non-conformités
     st.header("📊 Tableau de Bord des Non-Conformités")
-    response = supabase.table("non_conformities").select("*").execute()
+    filters = {"user_id": user["id"]} if not is_admin else {}
+    response = supabase.table("non_conformites").select("*").execute()
     non_conformities = response.data
 
     if non_conformities:
@@ -134,8 +141,8 @@ else:
                 st.write(f"**Statut**: {nc['status']}")
                 if nc["photos"]:
                     st.write("**Photos**:")
-                    for photo_url in nc["photos"]:
-                        st.image(photo_url, use_column_width=True)
+                    for photo in nc["photos"]:
+                        st.image(photo, use_column_width=True)
 
                 # Actions correctives associées
                 corrective_actions = supabase.table("actions_correctives").select("*").eq("non_conformite_id", nc["id"]).execute().data
@@ -154,5 +161,3 @@ else:
                         add_action_button = st.form_submit_button("Ajouter Action Corrective")
                         if add_action_button:
                             add_corrective_action(nc["id"], action, delai, responsable)
-    else:
-        st.info("Aucune non-conformité trouvée.")
