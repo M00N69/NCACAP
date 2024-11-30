@@ -40,6 +40,7 @@ def load_non_conformities(user_id=None, is_admin=False):
         st.error(f"Erreur lors du chargement des non-conformités : {e}")
         return []
         
+        
 
 # Fonction : Charger les actions correctives
 def load_corrective_actions(non_conformite_id):
