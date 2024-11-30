@@ -129,26 +129,25 @@ else:
         if non_conformities:
             st.write("### Liste des Non-Conformités")
 
-            data = []
             for nc in non_conformities:
-                photo_urls = nc.get("photos", [])
-                data.append(
-                    {
-                        "Objet": nc["objet"],
-                        "Type": nc["type"],
-                        "Description": nc["description"],
-                        "Statut": nc["status"],
-                        "Créé le": nc["created_at"],
-                        "Photos": photo_urls[0] if photo_urls else None,
-                    }
-                )
+                st.markdown(f"#### {nc['objet']}")
+                st.write(f"**Type**: {nc['type']}")
+                st.write(f"**Description**: {nc['description']}")
+                st.write(f"**Statut**: {nc['status']}")
+                st.write(f"**Créé le**: {nc['created_at']}")
 
-            df = pd.DataFrame(data)
-            config = {
-                "Photos": st.column_config.ImageColumn(),
-            }
+                if "photos" in nc and nc["photos"]:
+                    st.write("**Photos**:")
+                    for photo_url in nc["photos"]:
+                        st.image(photo_url, caption="Photo", use_column_width=True)
 
-            st.dataframe(df, column_config=config)
+                st.write("---")
+
+                # Ajouter des actions correctives
+                if st.button(f"Éditer {nc['id']}", key=f"edit_{nc['id']}"):
+                    st.write(f"Éditer la non-conformité {nc['id']}")
+                if st.button(f"Supprimer {nc['id']}", key=f"delete_{nc['id']}"):
+                    st.write(f"Supprimer la non-conformité {nc['id']}")
         else:
             st.info("Aucune non-conformité trouvée.")
 
