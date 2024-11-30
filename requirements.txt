@@ -3,3 +3,5 @@ supabase
 pillow
 pandas
 numpy
+streamlit-aggrid
+matplotlib
