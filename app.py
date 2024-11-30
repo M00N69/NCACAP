@@ -3,6 +3,9 @@ from supabase import create_client
 import datetime
 import uuid
 import re
+import pandas as pd
+from st_aggrid import AgGrid, GridOptionsBuilder
+import matplotlib.pyplot as plt
 
 # Configuration Streamlit (mode wide)
 st.set_page_config(page_title="Gestion des Non-Conformités", layout="wide")
@@ -73,6 +76,28 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     except Exception as e:
         st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
 
+# Fonction : Afficher les cartes des non-conformités
+def display_cards(non_conformities):
+    """Afficher les non-conformités sous forme de cartes."""
+    for nc in non_conformities:
+        with st.container():
+            st.markdown(
+                f"""
+                <div style="border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #f9f9f9;">
+                    <h4>{nc['objet']}</h4>
+                    <p><strong>Type :</strong> {nc['type']}</p>
+                    <p><strong>Description :</strong> {nc['description']}</p>
+                    <p><strong>Statut :</strong> {nc['status']}</p>
+                    <p><strong>Créé le :</strong> {nc['created_at']}</p>
+                    <div>
+                        {"".join([f"<img src='{url}' style='width: 100px; margin-right: 10px;'>" for url in nc['photos']])}
+                    </div>
+                    <button style="margin-top: 10px; background-color: #007BFF; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;" onclick="alert('Modifier {nc['id']}')">✏️ Éditer</button>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
 # Interface utilisateur Streamlit
 st.title("🛠️ Système de Gestion des Non-Conformités")
 
@@ -94,7 +119,7 @@ else:
     is_admin = user["role"] == "admin"
 
     # Navigation dans la barre latérale
-    menu = st.sidebar.selectbox("Navigation", ["Fiche de Non-Conformité", "Tableau de Bord", "Profil"])
+    menu = st.sidebar.selectbox("Navigation", ["Fiche de Non-Conformité", "Tableau de Bord", "Vue Analytique", "Profil"])
 
     if menu == "Fiche de Non-Conformité":
         # Soumission de non-conformité
@@ -113,87 +138,34 @@ else:
                     submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
 
     elif menu == "Tableau de Bord":
-        # Tableau de bord
+        # Tableau interactif
         st.header("📊 Tableau de Bord des Non-Conformités")
-
-        # Récupération des non-conformités
-        if is_admin:
-            response = supabase.table("non_conformites").select("*").execute()  # Tous les enregistrements pour les admins
-        else:
-            response = supabase.table("non_conformites").select("*").eq("user_id", user["id"]).execute()  # Seulement ceux de l'utilisateur
-
+        response = supabase.table("non_conformites").select("*").execute()
         non_conformities = response.data
 
         if non_conformities:
-            st.write("### Liste des Non-Conformités")
-
-            # Style CSS pour le tableau
-            table_css = """
-            <style>
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 20px;
-                }
-                th, td {
-                    border: 1px solid #ddd;
-                    padding: 10px;
-                    text-align: center;
-                }
-                th {
-                    background-color: #f4f4f4;
-                    font-weight: bold;
-                }
-                img {
-                    width: 80px;
-                    height: auto;
-                    margin: 5px;
-                }
-                .edit-button {
-                    background-color: #007BFF;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                }
-                .edit-button:hover {
-                    background-color: #0056b3;
-                }
-            </style>
-            """
-
-            # Début du tableau
-            table_html = "<table><thead><tr>"
-            table_html += "<th>Objet</th><th>Type</th><th>Description</th><th>Statut</th><th>Créé le</th><th>Photos</th><th>Actions</th></tr></thead><tbody>"
-
-            for nc in non_conformities:
-                photo_html = ""
-                if "photos" in nc and nc["photos"]:
-                    for photo_url in nc["photos"]:
-                        photo_html += f"<img src='{photo_url}' alt='Photo' />"
-
-                table_html += f"""
-                <tr>
-                    <td>{nc['objet']}</td>
-                    <td>{nc['type']}</td>
-                    <td>{nc['description']}</td>
-                    <td>{nc['status']}</td>
-                    <td>{nc['created_at']}</td>
-                    <td>{photo_html}</td>
-                    <td><button class="edit-button" onclick="alert('Modifier {nc['id']}')">✏️ Éditer</button></td>
-                </tr>
-                """
-
-            table_html += "</tbody></table>"
-
-            # Afficher le tableau avec CSS
-            st.markdown(table_css + table_html, unsafe_allow_html=True)
+            st.write("### Non-Conformités")
+            df = pd.DataFrame(non_conformities)
+            grid_builder = GridOptionsBuilder.from_dataframe(df)
+            grid_builder.configure_selection("single", use_checkbox=True)
+            grid_options = grid_builder.build()
+            grid_response = AgGrid(df, gridOptions=grid_options, height=400, theme="streamlit")
         else:
             st.info("Aucune non-conformité trouvée.")
 
+    elif menu == "Vue Analytique":
+        st.header("📈 Vue Analytique")
+        response = supabase.table("non_conformites").select("*").execute()
+        non_conformities = response.data
+        if non_conformities:
+            types = [nc["type"] for nc in non_conformities]
+            type_counts = pd.Series(types).value_counts()
+
+            fig, ax = plt.subplots()
+            type_counts.plot(kind="bar", ax=ax, color=["#007BFF", "#28a745", "#dc3545"])
+            st.pyplot(fig)
+
     elif menu == "Profil":
-        # Page de profil
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {'Administrateur' if is_admin else 'Utilisateur Standard'}")
