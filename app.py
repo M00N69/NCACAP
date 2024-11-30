@@ -4,7 +4,7 @@ import datetime
 import uuid
 import re
 
-# Configuration Streamlit (mode wide)
+# Configuration Streamlit
 st.set_page_config(page_title="Gestion des Non-Conformités", layout="wide")
 
 # Initialisation de Supabase
@@ -127,79 +127,33 @@ else:
         if non_conformities:
             st.write("### Liste des Non-Conformités")
 
-            # Style CSS pour le tableau
-            table_css = """
-            <style>
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 20px;
-                }
-                th, td {
-                    border: 1px solid #ddd;
-                    padding: 10px;
-                    text-align: left;
-                    vertical-align: top;
-                }
-                th {
-                    background-color: #f4f4f4;
-                    font-weight: bold;
-                }
-                td {
-                    word-wrap: break-word;
-                    max-width: 150px;
-                }
-                .photo-cell img {
-                    width: 80px;
-                    height: 80px;
-                    object-fit: cover;
-                    border-radius: 5px;
-                }
-                .edit-button {
-                    background-color: #007BFF;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                }
-                .edit-button:hover {
-                    background-color: #0056b3;
-                }
-            </style>
-            """
-
-            # Début du tableau
-            table_html = "<table><thead><tr>"
-            table_html += "<th>Objet</th><th>Type</th><th>Description</th><th>Statut</th><th>Créé le</th><th>Photos</th><th>Actions</th></tr></thead><tbody>"
-
-            # Remplissage du tableau
+            # Affichage dynamique des non-conformités
             for nc in non_conformities:
-                # Gestion des photos
-                photo_html = ""
-                if "photos" in nc and nc["photos"]:
-                    for photo_url in nc["photos"]:
-                        photo_html += f"<img src='{photo_url}' alt='Photo' />"
+                st.markdown("---")  # Séparateur visuel pour chaque non-conformité
 
-                # Ligne du tableau
-                table_html += f"""
-                <tr>
-                    <td>{nc['objet']}</td>
-                    <td>{nc['type']}</td>
-                    <td>{nc['description']}</td>
-                    <td>{nc['status']}</td>
-                    <td>{nc['created_at']}</td>
-                    <td class="photo-cell">{photo_html}</td>
-                    <td>
-                        <button class="edit-button" onclick="alert('Modifier {nc['id']}')">✏️ Éditer</button>
-                    </td>
-                </tr>
-                """
+                # Afficher les informations principales
+                st.markdown(f"**Objet**: {nc['objet']}")
+                st.markdown(f"**Type**: {nc['type']}")
+                st.markdown(f"**Description**: {nc['description']}")
+                st.markdown(f"**Statut**: {nc['status']}")
+                st.markdown(f"**Créé le**: {nc['created_at']}")
 
-            table_html += "</tbody></table>"
+                # Afficher les photos en miniatures
+                if nc["photos"]:
+                    st.markdown("**Photos:**")
+                    photo_cols = st.columns(len(nc["photos"]))  # Colonnes dynamiques pour les photos
+                    for idx, photo_url in enumerate(nc["photos"]):
+                        with photo_cols[idx]:
+                            st.image(photo_url, width=100)
 
-            # Afficher le tableau avec CSS
-            st.markdown(table_css + table_html, unsafe_allow_html=True)
+                # Actions pour chaque non-conformité
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    if st.button(f"✏️ Éditer - {nc['id']}"):
+                        st.info(f"Édition en cours pour {nc['objet']}.")
+                with col2:
+                    if st.button(f"❌ Supprimer - {nc['id']}"):
+                        st.warning(f"Non-conformité {nc['objet']} supprimée (simulation).")
         else:
             st.info("Aucune non-conformité trouvée.")
 
