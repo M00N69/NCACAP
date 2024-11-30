@@ -2,7 +2,6 @@ import streamlit as st
 from supabase import create_client
 import datetime
 import uuid
-import re
 
 # Configuration Streamlit
 st.set_page_config(page_title="Gestion des Non-Conformités", layout="wide")
@@ -177,3 +176,24 @@ else:
                                 "created_at": datetime.datetime.utcnow().isoformat(),
                             }).execute()
                             st.success("Action corrective ajoutée avec succès.")
+
+    elif menu == "Profil":
+        # Titre de la page
+        st.header("👤 Profil Utilisateur")
+        
+        # Afficher les informations de l'utilisateur
+        st.subheader("Informations personnelles")
+        st.write(f"**Nom d'utilisateur :** {user['email']}")
+        st.write(f"**Rôle :** {'Administrateur' if is_admin else 'Utilisateur Standard'}")
+        st.write(f"**Date de dernière connexion :** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Section pour la déconnexion
+        st.subheader("Déconnexion")
+        st.write("Cliquez sur le bouton ci-dessous pour vous déconnecter.")
+        
+        if st.button("Se déconnecter", key="logout_button"):
+            st.session_state.user = None
+            st.session_state.edit_mode = None  # Réinitialiser l'état d'édition
+            st.success("Vous avez été déconnecté avec succès !")
+            st.experimental_rerun()  # Rediriger vers la page de connexion
+
