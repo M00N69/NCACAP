@@ -3,6 +3,7 @@ from supabase import create_client
 import datetime
 import uuid
 import re
+import pandas as pd
 
 # Configuration Streamlit (mode wide)
 st.set_page_config(page_title="Gestion des Non-Conformités", layout="wide")
@@ -127,68 +128,12 @@ else:
         if non_conformities:
             st.write("### Liste des Non-Conformités")
 
-            # Style CSS pour le tableau
-            table_css = """
-            <style>
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 20px;
-                }
-                th, td {
-                    border: 1px solid #ddd;
-                    padding: 10px;
-                    text-align: center;
-                }
-                th {
-                    background-color: #f4f4f4;
-                    font-weight: bold;
-                }
-                img {
-                    width: 80px;
-                    height: auto;
-                    margin: 5px;
-                }
-                button {
-                    background-color: #007BFF;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                }
-                button:hover {
-                    background-color: #0056b3;
-                }
-            </style>
-            """
+            # Création d'un DataFrame pour afficher les non-conformités
+            df = pd.DataFrame(non_conformities)
+            df['photos'] = df['photos'].apply(lambda x: ', '.join(x) if x else '')
+            df['created_at'] = pd.to_datetime(df['created_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
 
-            # Début du tableau
-            table_html = "<table><thead><tr>"
-            table_html += "<th>Objet</th><th>Type</th><th>Description</th><th>Statut</th><th>Créé le</th><th>Photos</th><th>Actions</th></tr></thead><tbody>"
-
-            for nc in non_conformities:
-                photo_html = ""
-                if "photos" in nc and nc["photos"]:
-                    for photo_url in nc["photos"]:
-                        photo_html += f"<img src='{photo_url}' alt='Photo' />"
-
-                table_html += f"""
-                <tr>
-                    <td>{nc['objet']}</td>
-                    <td>{nc['type']}</td>
-                    <td>{nc['description']}</td>
-                    <td>{nc['status']}</td>
-                    <td>{nc['created_at']}</td>
-                    <td>{photo_html}</td>
-                    <td><button onclick="alert('Modifier {nc['id']}')">✏️ Éditer</button></td>
-                </tr>
-                """
-
-            table_html += "</tbody></table>"
-
-            # Afficher le tableau avec CSS
-            st.markdown(table_css + table_html, unsafe_allow_html=True)
+            st.dataframe(df[['objet', 'type', 'description', 'status', 'created_at', 'photos']])
         else:
             st.info("Aucune non-conformité trouvée.")
 
