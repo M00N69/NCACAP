@@ -161,3 +161,50 @@ else:
                         add_action_button = st.form_submit_button("Ajouter Action Corrective")
                         if add_action_button:
                             add_corrective_action(nc["id"], action, delai, responsable)
+
+# =====================================================================================
+# Commentaires sur les fonctionnalités implémentées :
+# =====================================================================================
+
+# 1. Authentification utilisateur :
+# - L'authentification par email et mot de passe en utilisant la table `users` fonctionne comme prévu.
+# - Les erreurs d'authentification (email/mot de passe incorrects) sont correctement gérées et affichées.
+
+# 2. Soumission de non-conformités :
+# - Les utilisateurs peuvent soumettre des non-conformités avec un objet, un type, une description et des photos.
+# - Les photos sont correctement téléchargées et stockées dans Supabase Storage.
+# - Les URL publiques des photos sont générées et enregistrées dans la base de données pour un affichage ultérieur.
+
+# 3. Affichage des non-conformités :
+# - Les non-conformités sont correctement récupérées et affichées dans un tableau de bord sous forme d'expanders.
+# - Les informations principales (type, description, statut, et photos) sont bien présentées.
+# - Les photos des non-conformités sont affichées de manière responsive avec `st.image`.
+# - Cependant, **la différenciation entre un utilisateur standard et un administrateur n'est pas fonctionnelle** :
+#     - Un utilisateur standard voit toutes les non-conformités, alors qu'il ne devrait voir que les siennes.
+#     - Ce problème doit être corrigé pour que les utilisateurs standards ne voient que leurs propres non-conformités.
+
+# 4. Actions correctives :
+# - Les utilisateurs avec un rôle `admin` peuvent ajouter des actions correctives aux non-conformités.
+# - Les actions correctives ajoutées sont correctement enregistrées dans la base de données et affichées sous la non-conformité correspondante.
+# - Les champs de saisie pour les actions (action, responsable, échéance) sont intuitifs et fonctionnels.
+
+# 5. Gestion des rôles :
+# - La différenciation entre les rôles `user` et `admin` est partiellement fonctionnelle :
+#     - Les administrateurs peuvent ajouter des actions correctives, ce qui est correct.
+#     - Les utilisateurs standards doivent être restreints pour voir uniquement leurs propres non-conformités dans le tableau de bord.
+
+# 6. Gestion des erreurs :
+# - Les erreurs liées aux téléversements de photos, à l'authentification ou à l'accès à la base de données sont correctement gérées et affichées pour l'utilisateur.
+
+# 7. Expérience utilisateur :
+# - L'interface est conviviale, avec des messages d'erreur et de succès clairs.
+# - Les formulaires pour soumettre des non-conformités et ajouter des actions correctives sont simples à utiliser.
+
+# Points d'amélioration pour la suite :
+# - Corriger la logique du tableau de bord pour que les utilisateurs standards voient uniquement leurs non-conformités.
+# - Ajouter une pagination ou un filtre pour les non-conformités lorsque leur nombre devient important.
+# - Permettre aux utilisateurs d'éditer ou de supprimer leurs non-conformités.
+# - Améliorer la sécurité des mots de passe (hashage avant de vérifier dans la base de données).
+# - Ajouter une fonctionnalité de recherche ou de filtrage des non-conformités par type ou statut.
+# =====================================================================================
+
