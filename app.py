@@ -251,3 +251,4 @@ else:
         if st.button("Déconnexion"):
             st.session_state.user = None
             st.experimental_rerun()
+
