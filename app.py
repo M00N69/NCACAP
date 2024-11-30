@@ -1,5 +1,5 @@
 import streamlit as st
-from supabase import create_client
+ from supabase import create_client
 import datetime
 import uuid
 import re
@@ -20,7 +20,10 @@ if "user" not in st.session_state:
 def authenticate_user(email, password):
     try:
         response = supabase.table("users").select("*").eq("email", email).eq("password", password).single().execute()
-        return response.data
+        if response and response.data:
+            return response.data
+        else:
+            st.error("Email ou mot de passe incorrect.")
     except Exception as e:
         st.error(f"Erreur lors de l'authentification : {e}")
     return None
@@ -29,9 +32,9 @@ def authenticate_user(email, password):
 def load_non_conformities(user_id=None, is_admin=False):
     try:
         if is_admin:
-            response = supabase.table("non_conformites").select("*").execute()
+            response = supabase.table("non_conformities").select("*").execute()
         else:
-            response = supabase.table("non_conformites").select("*").eq("user_id", user_id).execute()
+            response = supabase.table("non_conformities").select("*").eq("user_id", user_id).execute()
         return response.data if response and response.data else []
     except Exception as e:
         st.error(f"Erreur lors du chargement des non-conformités : {e}")
@@ -70,10 +73,12 @@ def sanitize_filename(filename):
 # Fonction : Soumettre une non-conformité
 def submit_non_conformity(user_id, objet, type, description, photos):
     """Soumettre une non-conformité avec gestion des photos."""
+"""
     photo_urls = []
-    for photo in photos:
+
+ for photo in photos:
         sanitized_name = sanitize_filename(photo.name)
-        unique_name = f"{uuid.uuid4()}_{sanitized_name}"
+  # Generate name = f"{uuid.uuid4()}_{sanitized_name}"
         file_path = f"photos/{unique_name}"
         file_data = photo.read()
         try:
@@ -96,7 +101,7 @@ def submit_non_conformity(user_id, objet, type, description, photos):
         "created_at": datetime.datetime.now().isoformat(),
     }
     try:
-        supabase.table("non_conformites").insert(data).execute()
+        supabase.table("non_conformities").insert(data).execute()
         st.success("Non-conformité soumise avec succès !")
     except Exception as e:
         st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
@@ -186,41 +191,42 @@ if st.session_state.user is None:
         if st.form_submit_button("Se connecter"):
             user = authenticate_user(email, password)
             if user:
-                st.session_state.user = user
+                st.sessionState.user = user
                 st.sidebar.success(f"Connecté en tant que {user['email']}")
+
 else:
     user = st.session_state.user
     is_admin = user.get("role") == "admin"
 
     # Onglets
-    tabs = ["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"]
+ tabs = ["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"]
     active_tab = st.sidebar.selectbox("Navigation", tabs)
 
     if active_tab == "Accueil":
-        st.header("Bienvenue dans le Système de Gestion des Non-Conformités")
+        st.header("Bienvenue dans le Système de gestion des non-conformités")
         st.write("Utilisez les onglets pour naviguer dans l'application.")
 
-    elif active_tab == "Soumettre une Non-Conformité":
-        st.header("📋 Soumettre une Non-Conformité")
+    elif active_tab == "Soumettre une non-conformité":
+        st.header("📋 Soumettre une non-conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
             type = st.selectbox("Type", ["Qualité", "Sécurité", "Environnement"])
             description = st.text_area("Description")
             photos = st.file_uploader("Photos", accept_multiple_files=True, type=["png", "jpg", "jpeg"])
-            submit_button = st.form_submit_button("Soumettre")
-            reset_button = st.form_submit_button("Réinitialiser")
+            submit_button = st.form_submit_button("soumettre")
+            reset_button = st.form_submit_button("réinitialiser")
 
             if submit_button:
                 if not objet or not type or not description:
-                    st.error("Veuillez remplir tous les champs obligatoires.")
+                    st.error("veuillez remplir tous les champs obligatoires.")
                 else:
                     submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
 
             if reset_button:
                 st.session_state.form_submitted = False
 
-    elif active_tab == "Tableau de Bord":
-        st.header("📊 Tableau de Bord des Non-Conformités")
+    elif active_tab == "tableau de bord":
+        st.header("📊tableau de bord des non-conformités")
         non_conformities = load_non_conformities(user_id=user["id"], is_admin=is_admin)
 
         if non_conformities:
@@ -252,24 +258,25 @@ else:
                         <td>{nc['description']}</td>
                         <td>{nc['type']}</td>
                         <td>{nc['status']}</td>
-                        <td>{nc['createdat']}</td>
-                        <td>{photohtml}</td>
-                        <td class="actionbuttons">
-                            <button onclick='alert("Édition de la nonconformité {nc['id']}")'>✏️ Éditer</button>
+                        <td>{nc['created_at']}</td>
+                        <td>{photo_html}</td>
+                        <td class="action-buttons">
+                            <button onclick='alert("Édition de la non-conformité {nc['id']}")'>✏️ Éditer</button>
                             <button onclick='alert("Ajout d'action corrective pour {nc['id']}")'>➕ Action</button>
                         </td>
                     </tr>
                     """,
-                    unsafeallowhtml=True,
+                    unsafe_allow_html=True,
                 )
-            st.markdown("</table>", unsafeallowhtml=True)
+            st.markdown("</table>", unsafe_allow_html=True)
         else:
-            st.info("Aucune nonconformance trouvée.")
+            st.info("Aucune non-conformité trouvée.")
 
-    elif active_tab == "Profil":
+    elif active_tab == "profil":
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {user['role']}")
         if st.button("Déconnexion"):
-            st.sessionstate.user = None
-            st.experimentalrerun()
+            st.session_state.user = None
+            st.experimental_rerun()
+            
