@@ -124,10 +124,17 @@ else:
                     unsafe_allow_html=True,
                 )
 
-                # Miniatures des photos
+                # Miniatures des photos avec agrandissement au clic
                 st.markdown("**Photos :**")
                 for photo_url in nc["photos"]:
-                    st.image(photo_url, caption="Cliquez pour agrandir", width=150, use_column_width=True)
+                    st.markdown(
+                        f"""
+                        <a href="{photo_url}" target="_blank">
+                            <img src="{photo_url}" style="width: 100px; height: 100px; object-fit: cover; margin-right: 10px; border-radius: 5px; border: 1px solid #ddd;">
+                        </a>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
                 # Actions Correctives
                 st.markdown("**Actions Correctives :**")
@@ -139,34 +146,34 @@ else:
                     st.info("Aucune action corrective.")
 
                 # Boutons pour chaque carte
-                edit_button = st.button(f"✏️ Éditer {nc['objet']}", key=f"edit_{nc['id']}")
-                add_action_button = st.button(f"➕ Ajouter une Action Corrective {nc['objet']}", key=f"action_{nc['id']}")
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button(f"✏️ Éditer {nc['objet']}", key=f"edit_{nc['id']}"):
+                        st.session_state.edit_mode = nc["id"]
+                        st.markdown("### Formulaire d'Édition")
+                        edited_objet = st.text_input("Objet", value=nc["objet"])
+                        edited_description = st.text_area("Description", value=nc["description"])
+                        edited_status = st.selectbox("Statut", ["open", "closed"], index=["open", "closed"].index(nc["status"]))
+                        if st.button("Enregistrer les modifications"):
+                            supabase.table("non_conformites").update({
+                                "objet": edited_objet,
+                                "description": edited_description,
+                                "status": edited_status
+                            }).eq("id", nc["id"]).execute()
+                            st.success("Modifications enregistrées.")
 
-                if edit_button:
-                    st.session_state.edit_mode = nc["id"]
-                    st.markdown("### Formulaire d'Édition")
-                    edited_objet = st.text_input("Objet", value=nc["objet"])
-                    edited_description = st.text_area("Description", value=nc["description"])
-                    edited_status = st.selectbox("Statut", ["open", "closed"], index=["open", "closed"].index(nc["status"]))
-                    if st.button("Enregistrer les modifications"):
-                        supabase.table("non_conformites").update({
-                            "objet": edited_objet,
-                            "description": edited_description,
-                            "status": edited_status
-                        }).eq("id", nc["id"]).execute()
-                        st.success("Modifications enregistrées.")
-
-                if add_action_button:
-                    st.markdown(f"### Ajouter une Action Corrective pour {nc['objet']}")
-                    action_name = st.text_input("Nom de l'action")
-                    responsible = st.text_input("Responsable")
-                    due_date = st.date_input("Date d'échéance")
-                    if st.button("Ajouter l'Action"):
-                        supabase.table("actions_correctives").insert({
-                            "non_conformite_id": nc["id"],
-                            "action": action_name,
-                            "responsable": responsible,
-                            "delai": due_date.isoformat(),
-                            "created_at": datetime.datetime.utcnow().isoformat(),
-                        }).execute()
-                        st.success("Action corrective ajoutée avec succès.")
+                with col2:
+                    if st.button(f"➕ Ajouter une Action Corrective {nc['objet']}", key=f"action_{nc['id']}"):
+                        st.markdown(f"### Ajouter une Action Corrective pour {nc['objet']}")
+                        action_name = st.text_input("Nom de l'action")
+                        responsible = st.text_input("Responsable")
+                        due_date = st.date_input("Date d'échéance")
+                        if st.button("Ajouter l'Action"):
+                            supabase.table("actions_correctives").insert({
+                                "non_conformite_id": nc["id"],
+                                "action": action_name,
+                                "responsable": responsible,
+                                "delai": due_date.isoformat(),
+                                "created_at": datetime.datetime.utcnow().isoformat(),
+                            }).execute()
+                            st.success("Action corrective ajoutée avec succès.")
