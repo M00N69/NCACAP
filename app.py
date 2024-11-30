@@ -35,11 +35,16 @@ def load_non_conformities(user_id=None, is_admin=False):
             response = supabase.table("non_conformities").select("*").execute()
         else:
             response = supabase.table("non_conformities").select("*").eq("user_id", user_id).execute()
-        return response.data if response and response.data else []
+
+        if response and response.data:
+            st.write("Non-Conformités chargées :", response.data)  # Log des données
+            return response.data
+        else:
+            st.warning("Aucune non-conformité trouvée.")
+            return []
     except Exception as e:
         st.error(f"Erreur lors du chargement des non-conformités : {e}")
         return []
-        
         
 
 # Fonction : Charger les actions correctives
