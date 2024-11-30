@@ -31,8 +31,8 @@ def authenticate_user(email, password):
 # Fonction : Nettoyer les noms de fichiers
 def sanitize_filename(filename):
     """Nettoyer le nom du fichier pour éviter les erreurs de téléversement."""
-    filename = filename.replace(" ", "_")  # Remplacer les espaces par des underscores
-    filename = re.sub(r"[^\w\.-]", "", filename)  # Supprimer les caractères non autorisés
+    filename = filename.replace(" ", "_")
+    filename = re.sub(r"[^\w\.-]", "", filename)
     return filename
 
 # Fonction : Soumettre une non-conformité
@@ -40,17 +40,12 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     """Soumettre une non-conformité avec gestion des photos."""
     photo_urls = []
     for photo in photos:
-        # Nettoyer le nom du fichier
         sanitized_name = sanitize_filename(photo.name)
-        # Générer un chemin unique
         unique_name = f"{uuid.uuid4()}_{sanitized_name}"
         file_path = f"photos/{unique_name}"
-        file_data = photo.read()  # Lire le fichier en binaire
-
+        file_data = photo.read()
         try:
-            # Téléversement vers Supabase Storage
             supabase.storage.from_("photos").upload(file_path, file_data)
-            # Récupérer l'URL publique du fichier
             public_url = supabase.storage.from_("photos").get_public_url(file_path)
             if public_url:
                 photo_urls.append(public_url)
@@ -60,7 +55,6 @@ def submit_non_conformity(user_id, objet, type, description, photos):
             st.error(f"Erreur inattendue lors du téléversement de {photo.name} : {e}")
             return
 
-    # Enregistrement dans la table `non_conformites`
     data = {
         "user_id": user_id,
         "objet": objet,
@@ -68,34 +62,17 @@ def submit_non_conformity(user_id, objet, type, description, photos):
         "description": description,
         "photos": photo_urls,
         "status": "open",
-        "created_at": datetime.datetime.now().isoformat(),
+        "created_at": datetime.datetime.utcnow().isoformat(),
     }
     try:
-        response = supabase.table("non_conformites").insert(data).execute()
+        supabase.table("non_conformites").insert(data).execute()
         st.success("Non-conformité soumise avec succès !")
     except Exception as e:
         st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
 
-# Fonction : Ajouter une action corrective
-def add_corrective_action(non_conformite_id, action, delai, responsable):
-    """Ajouter une action corrective pour une non-conformité."""
-    data = {
-        "non_conformite_id": non_conformite_id,
-        "action": action,
-        "delai": delai.isoformat(),
-        "responsable": responsable,
-        "created_at": datetime.datetime.now().isoformat(),
-    }
-    try:
-        response = supabase.table("actions_correctives").insert(data).execute()
-        st.success("Action corrective ajoutée avec succès !")
-    except Exception as e:
-        st.error(f"Erreur lors de l'ajout de l'action corrective : {e}")
-
 # Interface utilisateur Streamlit
 st.title("🛠️ Système de Gestion des Non-Conformités")
 
-# Connexion
 if st.session_state.user is None:
     st.sidebar.title("Connexion")
     with st.sidebar.form("login_form"):
@@ -112,99 +89,50 @@ else:
     user = st.session_state.user
     is_admin = user["role"] == "admin"
 
-    # Soumission de non-conformité
-    st.header("📋 Soumettre une Non-Conformité")
-    with st.form("non_conformity_form"):
-        objet = st.text_input("Objet")
-        type = st.selectbox("Type", ["Qualité", "Sécurité", "Environnement"])
-        description = st.text_area("Description")
-        photos = st.file_uploader("Photos", accept_multiple_files=True, type=["png", "jpg", "jpeg"])
-        submit_button = st.form_submit_button("Soumettre")
+    # Navigation par dropdown
+    menu = st.sidebar.selectbox("Navigation", ["Fiche de Non-Conformité", "Tableau de Bord", "Profil"])
 
-        if submit_button:
-            if not objet or not type or not description:
-                st.error("Veuillez remplir tous les champs obligatoires.")
-            else:
-                submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
+    if menu == "Fiche de Non-Conformité":
+        st.header("📋 Soumettre une Non-Conformité")
+        with st.form("non_conformity_form"):
+            objet = st.text_input("Objet")
+            type = st.selectbox("Type", ["Qualité", "Sécurité", "Environnement"])
+            description = st.text_area("Description")
+            photos = st.file_uploader("Photos", accept_multiple_files=True, type=["png", "jpg", "jpeg"])
+            submit_button = st.form_submit_button("Soumettre")
 
-    # Affichage des non-conformités
-    st.header("📊 Tableau de Bord des Non-Conformités")
-    filters = {"user_id": user["id"]} if not is_admin else {}
-    response = supabase.table("non_conformites").select("*").execute()
-    non_conformities = response.data
+            if submit_button:
+                if not objet or not type or not description:
+                    st.error("Veuillez remplir tous les champs obligatoires.")
+                else:
+                    submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
 
-    if non_conformities:
-        for nc in non_conformities:
-            with st.expander(nc["objet"]):
-                st.write(f"**Type**: {nc['type']}")
-                st.write(f"**Description**: {nc['description']}")
-                st.write(f"**Statut**: {nc['status']}")
-                if nc["photos"]:
-                    st.write("**Photos**:")
-                    for photo in nc["photos"]:
-                        st.image(photo, use_column_width=True)
+    elif menu == "Tableau de Bord":
+        st.header("📊 Tableau de Bord des Non-Conformités")
+        if is_admin:
+            response = supabase.table("non_conformites").select("*").execute()  # Tous les enregistrements pour les admins
+        else:
+            response = supabase.table("non_conformites").select("*").eq("user_id", user["id"]).execute()  # Seulement ceux de l'utilisateur
 
-                # Actions correctives associées
-                corrective_actions = supabase.table("actions_correctives").select("*").eq("non_conformite_id", nc["id"]).execute().data
-                if corrective_actions:
-                    st.write("**Actions Correctives**:")
-                    for action in corrective_actions:
-                        st.write(f"- {action['action']} (Responsable: {action['responsable']}, Échéance: {action['delai']})")
+        non_conformities = response.data
 
-                # Ajout d'action corrective (administrateurs uniquement)
-                if is_admin:
-                    st.subheader("Ajouter une Action Corrective")
-                    with st.form(f"corrective_form_{nc['id']}"):
-                        action = st.text_input("Action")
-                        delai = st.date_input("Échéance")
-                        responsable = st.text_input("Responsable")
-                        add_action_button = st.form_submit_button("Ajouter Action Corrective")
-                        if add_action_button:
-                            add_corrective_action(nc["id"], action, delai, responsable)
+        if non_conformities:
+            st.write("### Liste des Non-Conformités")
+            st.write(
+                "| Objet | Type | Description | Statut | Créé le |\n"
+                "|-------|------|-------------|--------|---------|\n"
+                + "\n".join(
+                    f"| {nc['objet']} | {nc['type']} | {nc['description']} | {nc['status']} | {nc['created_at']} |"
+                    for nc in non_conformities
+                )
+            )
+        else:
+            st.info("Aucune non-conformité trouvée.")
 
-# =====================================================================================
-# Commentaires sur les fonctionnalités implémentées :
-# =====================================================================================
-
-# 1. Authentification utilisateur :
-# - L'authentification par email et mot de passe en utilisant la table `users` fonctionne comme prévu.
-# - Les erreurs d'authentification (email/mot de passe incorrects) sont correctement gérées et affichées.
-
-# 2. Soumission de non-conformités :
-# - Les utilisateurs peuvent soumettre des non-conformités avec un objet, un type, une description et des photos.
-# - Les photos sont correctement téléchargées et stockées dans Supabase Storage.
-# - Les URL publiques des photos sont générées et enregistrées dans la base de données pour un affichage ultérieur.
-
-# 3. Affichage des non-conformités :
-# - Les non-conformités sont correctement récupérées et affichées dans un tableau de bord sous forme d'expanders.
-# - Les informations principales (type, description, statut, et photos) sont bien présentées.
-# - Les photos des non-conformités sont affichées de manière responsive avec `st.image`.
-# - Cependant, **la différenciation entre un utilisateur standard et un administrateur n'est pas fonctionnelle** :
-#     - Un utilisateur standard voit toutes les non-conformités, alors qu'il ne devrait voir que les siennes.
-#     - Ce problème doit être corrigé pour que les utilisateurs standards ne voient que leurs propres non-conformités.
-
-# 4. Actions correctives :
-# - Les utilisateurs avec un rôle `admin` peuvent ajouter des actions correctives aux non-conformités.
-# - Les actions correctives ajoutées sont correctement enregistrées dans la base de données et affichées sous la non-conformité correspondante.
-# - Les champs de saisie pour les actions (action, responsable, échéance) sont intuitifs et fonctionnels.
-
-# 5. Gestion des rôles :
-# - La différenciation entre les rôles `user` et `admin` est partiellement fonctionnelle :
-#     - Les administrateurs peuvent ajouter des actions correctives, ce qui est correct.
-#     - Les utilisateurs standards doivent être restreints pour voir uniquement leurs propres non-conformités dans le tableau de bord.
-
-# 6. Gestion des erreurs :
-# - Les erreurs liées aux téléversements de photos, à l'authentification ou à l'accès à la base de données sont correctement gérées et affichées pour l'utilisateur.
-
-# 7. Expérience utilisateur :
-# - L'interface est conviviale, avec des messages d'erreur et de succès clairs.
-# - Les formulaires pour soumettre des non-conformités et ajouter des actions correctives sont simples à utiliser.
-
-# Points d'amélioration pour la suite :
-# - Corriger la logique du tableau de bord pour que les utilisateurs standards voient uniquement leurs non-conformités.
-# - Ajouter une pagination ou un filtre pour les non-conformités lorsque leur nombre devient important.
-# - Permettre aux utilisateurs d'éditer ou de supprimer leurs non-conformités.
-# - Améliorer la sécurité des mots de passe (hashage avant de vérifier dans la base de données).
-# - Ajouter une fonctionnalité de recherche ou de filtrage des non-conformités par type ou statut.
-# =====================================================================================
-
+    elif menu == "Profil":
+        st.header("Profil Utilisateur")
+        st.write(f"**Email**: {user['email']}")
+        st.write(f"**Rôle**: {'Administrateur' if is_admin else 'Utilisateur Standard'}")
+        if st.button("Déconnexion"):
+            st.session_state.user = None
+            st.experimental_rerun()
