@@ -1,4 +1,6 @@
-import streamlit as st
+import streamlit as st  # Import avant toute autre commande
+st.set_page_config(layout="wide", page_title="Gestion des Non-Conformités", page_icon="🛠️")  # Première commande Streamlit
+
 from supabase import create_client
 import datetime
 import uuid
@@ -81,6 +83,9 @@ def inject_custom_css():
     st.markdown(
         """
         <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
         .styled-table {
             width: 100%;
             border-collapse: collapse;
@@ -103,7 +108,6 @@ def inject_custom_css():
 inject_custom_css()
 
 # Interface utilisateur Streamlit
-st.set_page_config(layout="wide")
 st.title("🛠️ Système de Gestion des Non-Conformités")
 
 # Connexion
