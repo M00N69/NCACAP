@@ -20,10 +20,7 @@ if "user" not in st.session_state:
 def authenticate_user(email, password):
     try:
         response = supabase.table("users").select("*").eq("email", email).eq("password", password).single().execute()
-        if response and response.data:
-            return response.data
-        else:
-            st.error("Email ou mot de passe incorrect.")
+        return response.data
     except Exception as e:
         st.error(f"Erreur lors de l'authentification : {e}")
     return None
@@ -35,7 +32,6 @@ def load_non_conformities(user_id=None, is_admin=False):
             response = supabase.table("non_conformites").select("*").execute()
         else:
             response = supabase.table("non_conformites").select("*").eq("user_id", user_id).execute()
-
         return response.data if response and response.data else []
     except Exception as e:
         st.error(f"Erreur lors du chargement des non-conformités : {e}")
@@ -105,7 +101,7 @@ def submit_non_conformity(user_id, objet, type, description, photos):
     except Exception as e:
         st.error(f"Erreur lors de l'insertion dans la base de données : {e}")
 
-# CSS pour styliser les tableaux
+# CSS pour styliser les tableaux et les boutons
 def inject_custom_css():
     st.markdown(
         """
@@ -149,6 +145,29 @@ def inject_custom_css():
         .action-buttons button:hover {
             background-color: #0056b3;
         }
+        .tab-content {
+            margin-top: 20px;
+        }
+        .tab-content .tab-pane {
+            display: none;
+        }
+        .tab-content .tab-pane.active {
+            display: block;
+        }
+        .tab-links a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+        }
+        .tab-links a:hover, .tab-links a.active {
+            background-color: #007BFF;
+            color: white;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -174,13 +193,14 @@ else:
     is_admin = user.get("role") == "admin"
 
     # Onglets
-    tabs = st.tabs(["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"])
+    tabs = ["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Profil"]
+    active_tab = st.sidebar.selectbox("Navigation", tabs)
 
-    with tabs[0]:
+    if active_tab == "Accueil":
         st.header("Bienvenue dans le Système de Gestion des Non-Conformités")
         st.write("Utilisez les onglets pour naviguer dans l'application.")
 
-    with tabs[1]:
+    elif active_tab == "Soumettre une Non-Conformité":
         st.header("📋 Soumettre une Non-Conformité")
         with st.form("non_conformity_form"):
             objet = st.text_input("Objet")
@@ -199,7 +219,7 @@ else:
             if reset_button:
                 st.session_state.form_submitted = False
 
-    with tabs[2]:
+    elif active_tab == "Tableau de Bord":
         st.header("📊 Tableau de Bord des Non-Conformités")
         non_conformities = load_non_conformities(user_id=user["id"], is_admin=is_admin)
 
@@ -211,7 +231,8 @@ else:
                     <th>Objet</th>
                     <th>Description</th>
                     <th>Type</th>
-                    <th>Statut</th>
+                    <th>Status</th>
+                    <th>Date de création</th>
                     <th>Photos</th>
                     <th>Actions</th>
                 </tr>
@@ -231,24 +252,24 @@ else:
                         <td>{nc['description']}</td>
                         <td>{nc['type']}</td>
                         <td>{nc['status']}</td>
-                        <td>{photo_html}</td>
-                        <td class="action-buttons">
-                            <button onclick='alert("Édition de la non-conformité {nc['id']}")'>✏️ Éditer</button>
+                        <td>{nc['createdat']}</td>
+                        <td>{photohtml}</td>
+                        <td class="actionbuttons">
+                            <button onclick='alert("Édition de la nonconformité {nc['id']}")'>✏️ Éditer</button>
                             <button onclick='alert("Ajout d'action corrective pour {nc['id']}")'>➕ Action</button>
                         </td>
                     </tr>
                     """,
-                    unsafe_allow_html=True,
+                    unsafeallowhtml=True,
                 )
-            st.markdown("</table>", unsafe_allow_html=True)
+            st.markdown("</table>", unsafeallowhtml=True)
         else:
-            st.info("Aucune non-conformité trouvée.")
+            st.info("Aucune nonconformance trouvée.")
 
-    with tabs[3]:
+    elif active_tab == "Profil":
         st.header("Profil Utilisateur")
         st.write(f"**Email**: {user['email']}")
         st.write(f"**Rôle**: {user['role']}")
         if st.button("Déconnexion"):
-            st.session_state.user = None
-            st.experimental_rerun()
-
+            st.sessionstate.user = None
+            st.experimentalrerun()
