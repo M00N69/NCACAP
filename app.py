@@ -137,22 +137,96 @@ else:
                 else:
                     submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
 
-    elif menu == "Tableau de Bord":
-        # Tableau interactif
-        st.header("📊 Tableau de Bord des Non-Conformités")
-        response = supabase.table("non_conformites").select("*").execute()
-        non_conformities = response.data
+elif menu == "Tableau de Bord":
+    # Tableau de bord
+    st.header("📊 Tableau de Bord des Non-Conformités")
 
-        if non_conformities:
-            st.write("### Non-Conformités")
-            df = pd.DataFrame(non_conformities)
-            grid_builder = GridOptionsBuilder.from_dataframe(df)
-            grid_builder.configure_selection("single", use_checkbox=True)
-            grid_options = grid_builder.build()
-            grid_response = AgGrid(df, gridOptions=grid_options, height=400, theme="streamlit")
-        else:
-            st.info("Aucune non-conformité trouvée.")
+    # Récupération des non-conformités
+    if is_admin:
+        response = supabase.table("non_conformites").select("*").execute()  # Tous les enregistrements pour les admins
+    else:
+        response = supabase.table("non_conformites").select("*").eq("user_id", user["id"]).execute()  # Seulement ceux de l'utilisateur
 
+    non_conformities = response.data
+
+    if non_conformities:
+        st.write("### Liste des Non-Conformités")
+
+        # Style CSS pour le tableau
+        table_css = """
+        <style>
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th, td {
+                border: 1px solid #ddd;
+                padding: 10px;
+                text-align: left;
+                vertical-align: top;
+            }
+            th {
+                background-color: #f4f4f4;
+                font-weight: bold;
+            }
+            td {
+                word-wrap: break-word;
+                max-width: 150px;
+            }
+            .photo-cell img {
+                width: 80px;
+                height: 80px;
+                object-fit: cover;
+                border-radius: 5px;
+            }
+            .edit-button {
+                background-color: #007BFF;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+            .edit-button:hover {
+                background-color: #0056b3;
+            }
+        </style>
+        """
+
+        # Début du tableau
+        table_html = "<table><thead><tr>"
+        table_html += "<th>Objet</th><th>Type</th><th>Description</th><th>Statut</th><th>Créé le</th><th>Photos</th><th>Actions</th></tr></thead><tbody>"
+
+        # Remplissage du tableau
+        for nc in non_conformities:
+            # Gestion des photos
+            photo_html = ""
+            if "photos" in nc and nc["photos"]:
+                for photo_url in nc["photos"]:
+                    photo_html += f"<img src='{photo_url}' alt='Photo' />"
+
+            # Ligne du tableau
+            table_html += f"""
+            <tr>
+                <td>{nc['objet']}</td>
+                <td>{nc['type']}</td>
+                <td>{nc['description']}</td>
+                <td>{nc['status']}</td>
+                <td>{nc['created_at']}</td>
+                <td class="photo-cell">{photo_html}</td>
+                <td>
+                    <button class="edit-button" onclick="alert('Modifier {nc['id']}')">✏️ Éditer</button>
+                </td>
+            </tr>
+            """
+
+        table_html += "</tbody></table>"
+
+        # Afficher le tableau avec CSS
+        st.markdown(table_css + table_html, unsafe_allow_html=True)
+    else:
+        st.info("Aucune non-conformité trouvée.")
     elif menu == "Vue Analytique":
         st.header("📈 Vue Analytique")
         response = supabase.table("non_conformites").select("*").execute()
