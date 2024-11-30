@@ -1,10 +1,11 @@
-import streamlit as st  # Import avant toute autre commande
-st.set_page_config(layout="wide", page_title="Gestion des Non-Conformités", page_icon="🛠️")  # Première commande Streamlit
-
+import streamlit as st
 from supabase import create_client
 import datetime
 import uuid
 import re
+
+# Initialisation de Streamlit
+st.set_page_config(layout="wide", page_title="Gestion des Non-Conformités", page_icon="🛠️")
 
 # Initialisation de Supabase
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -32,37 +33,35 @@ def sanitize_filename(filename):
     filename = filename.replace(" ", "_")
     return re.sub(r"[^\w\.-]", "", filename)
 
-# Fonction : Soumettre une non-conformité
-def submit_non_conformity(user_id, objet, type, description, photos):
-    photo_urls = []
-    for photo in photos:
-        sanitized_name = sanitize_filename(photo.name)
-        unique_name = f"{uuid.uuid4()}_{sanitized_name}"
-        file_path = f"photos/{unique_name}"
-        try:
-            supabase.storage.from_("photos").upload(file_path, photo.read())
-            public_url = supabase.storage.from_("photos").get_public_url(file_path)
-            if public_url:
-                photo_urls.append(public_url)
-            else:
-                st.error(f"Erreur : Impossible de générer l'URL pour {photo.name}")
-        except Exception as e:
-            st.error(f"Erreur lors du téléversement de {photo.name} : {e}")
-            return
-
+# Fonction : Charger les non-conformités
+def load_non_conformities(user_id=None, is_admin=False):
     try:
-        supabase.table("non_conformites").insert({
-            "user_id": user_id,
-            "objet": objet,
-            "type": type,
-            "description": description,
-            "photos": photo_urls,
-            "status": "open",
-            "created_at": datetime.datetime.now().isoformat(),
-        }).execute()
-        st.success("Non-conformité soumise avec succès !")
+        if is_admin:
+            response = supabase.table("non_conformites").select("*").execute()
+        else:
+            response = supabase.table("non_conformites").select("*").eq("user_id", user_id).execute()
+
+        return response.data if response and response.data else []
     except Exception as e:
-        st.error(f"Erreur lors de l'enregistrement : {e}")
+        st.error(f"Erreur lors du chargement des non-conformités : {e}")
+        return []
+
+# Fonction : Charger les actions correctives
+def load_corrective_actions(non_conformite_id):
+    try:
+        response = supabase.table("actions_correctives").select("*").eq("non_conformite_id", non_conformite_id).execute()
+        return response.data if response and response.data else []
+    except Exception as e:
+        st.error(f"Erreur lors du chargement des actions correctives : {e}")
+        return []
+
+# Fonction : Soumettre une mise à jour
+def update_non_conformity(non_conformity_id, updated_data):
+    try:
+        supabase.table("non_conformites").update(updated_data).eq("id", non_conformity_id).execute()
+        st.success("Non-conformité mise à jour avec succès !")
+    except Exception as e:
+        st.error(f"Erreur lors de la mise à jour : {e}")
 
 # Fonction : Ajouter une action corrective
 def add_corrective_action(non_conformite_id, action, delai, responsable):
@@ -78,7 +77,7 @@ def add_corrective_action(non_conformite_id, action, delai, responsable):
     except Exception as e:
         st.error(f"Erreur lors de l'ajout de l'action corrective : {e}")
 
-# CSS pour styliser les tableaux
+# CSS pour styliser les tableaux et miniatures
 def inject_custom_css():
     st.markdown(
         """
@@ -94,11 +93,19 @@ def inject_custom_css():
             border: 1px solid #ddd;
             padding: 8px;
         }
+        .styled-table th {
+            background-color: #f4f4f4;
+            text-align: left;
+        }
         .styled-table tr:nth-child(even) {
-            background-color: #f2f2f2;
+            background-color: #f9f9f9;
         }
         .styled-table tr:hover {
-            background-color: #ddd;
+            background-color: #f1f1f1;
+        }
+        .thumbnail {
+            width: 60px;
+            cursor: pointer;
         }
         </style>
         """,
@@ -108,9 +115,8 @@ def inject_custom_css():
 inject_custom_css()
 
 # Interface utilisateur Streamlit
-st.title("🛠️ Système de Gestion des Non-Conformités")
+st.title("🛠️ Gestion des Non-Conformités")
 
-# Connexion
 if st.session_state.user is None:
     st.sidebar.title("Connexion")
     with st.sidebar.form("login_form"):
@@ -125,55 +131,50 @@ else:
     user = st.session_state.user
     is_admin = user.get("role") == "admin"
 
-    # Onglets
-    tabs = st.tabs(["Accueil", "Soumettre une Non-Conformité", "Tableau de Bord", "Calendrier", "Profil"])
+    # Chargement des non-conformités
+    non_conformities = load_non_conformities(user_id=user["id"], is_admin=is_admin)
 
-    with tabs[0]:
-        st.header("Bienvenue")
-        st.write("Utilisez les onglets pour naviguer dans l'application.")
+    # Affichage des non-conformités
+    st.header("📊 Tableau des Non-Conformités")
+    st.markdown("<table class='styled-table'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <tr>
+            <th>Objet</th>
+            <th>Description</th>
+            <th>Type</th>
+            <th>Statut</th>
+            <th>Photos</th>
+            <th>Actions</th>
+        </tr>
+        """,
+        unsafe_allow_html=True,
+    )
+    for nc in non_conformities:
+        st.markdown("<tr>", unsafe_allow_html=True)
+        st.markdown(f"<td>{nc['objet']}</td>", unsafe_allow_html=True)
+        st.markdown(f"<td>{nc['description']}</td>", unsafe_allow_html=True)
+        st.markdown(f"<td>{nc['type']}</td>", unsafe_allow_html=True)
+        st.markdown(f"<td>{nc['status']}</td>", unsafe_allow_html=True)
 
-    with tabs[1]:
-        st.header("📋 Soumettre une Non-Conformité")
-        with st.form("non_conformity_form"):
-            objet = st.text_input("Objet")
-            type = st.selectbox("Type", ["Qualité", "Sécurité", "Environnement"])
-            description = st.text_area("Description")
-            photos = st.file_uploader("Photos", accept_multiple_files=True, type=["png", "jpg", "jpeg"])
-            if st.form_submit_button("Soumettre"):
-                if objet and type and description:
-                    submit_non_conformity(user_id=user["id"], objet=objet, type=type, description=description, photos=photos)
-                else:
-                    st.error("Veuillez remplir tous les champs obligatoires.")
+        # Miniatures cliquables
+        photo_html = ""
+        if "photos" in nc and nc["photos"]:
+            for photo_url in nc["photos"]:
+                photo_html += f"<img src='{photo_url}' class='thumbnail' onclick='window.open(\"{photo_url}\", \"_blank\")'>"
+        st.markdown(f"<td>{photo_html}</td>", unsafe_allow_html=True)
 
-    with tabs[2]:
-        st.header("📊 Tableau de Bord des Non-Conformités")
-        try:
-            response = supabase.table("non_conformites").select("*").execute()
-            if response and response.data:
-                non_conformities = response.data
-                for nc in non_conformities:
-                    st.markdown(
-                        f"""
-                        <table class="styled-table">
-                        <tr><th>Objet</th><td>{nc['objet']}</td></tr>
-                        <tr><th>Type</th><td>{nc['type']}</td></tr>
-                        <tr><th>Description</th><td>{nc['description']}</td></tr>
-                        </table>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+        # Boutons d'édition
+        action_buttons = f"""
+        <td>
+            <button onclick='alert("Édition non-conformité {nc['id']}")'>✏️ Éditer</button>
+            <button onclick='alert("Ajout action corrective {nc['id']}")'>➕ Action</button>
+        </td>
+        """
+        st.markdown(action_buttons, unsafe_allow_html=True)
+        st.markdown("</tr>", unsafe_allow_html=True)
+    st.markdown("</table>", unsafe_allow_html=True)
 
-        except Exception as e:
-            st.error(f"Erreur lors du chargement : {e}")
-
-    with tabs[3]:
-        st.header("📅 Calendrier des Actions Correctives")
-        st.write("En construction.")
-
-    with tabs[4]:
-        st.header("Profil Utilisateur")
-        st.write(f"**Email**: {user['email']}")
-        st.write(f"**Rôle**: {user['role']}")
-        if st.button("Déconnexion"):
-            st.session_state.user = None
-            st.experimental_rerun()
+    if st.button("Déconnexion"):
+        st.session_state.user = None
+        st.experimental_rerun()
