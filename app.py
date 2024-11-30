@@ -126,9 +126,9 @@ else:
 
         if non_conformities:
             st.write("### Liste des Non-Conformités")
-            
-            # Construction du tableau
-            table_html = """
+
+            # Style CSS pour le tableau
+            table_css = """
             <style>
                 table {
                     width: 100%;
@@ -136,7 +136,7 @@ else:
                 }
                 th, td {
                     border: 1px solid #ddd;
-                    padding: 8px;
+                    padding: 10px;
                     text-align: center;
                 }
                 th {
@@ -160,45 +160,34 @@ else:
                     background-color: #0056b3;
                 }
             </style>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Objet</th>
-                        <th>Type</th>
-                        <th>Description</th>
-                        <th>Statut</th>
-                        <th>Créé le</th>
-                        <th>Photos</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
             """
+
+            # Début du tableau
+            table_html = "<table><thead><tr>"
+            table_html += "<th>Objet</th><th>Type</th><th>Description</th><th>Statut</th><th>Créé le</th><th>Photos</th><th>Actions</th></tr></thead><tbody>"
+
             for nc in non_conformities:
                 photo_html = ""
-                if "photos" in nc and nc["photos"]:  # Vérifie s'il y a des photos
+                if "photos" in nc and nc["photos"]:
                     for photo_url in nc["photos"]:
                         photo_html += f"<img src='{photo_url}' alt='Photo' />"
 
-                # Ligne de tableau
                 table_html += f"""
-                    <tr>
-                        <td>{nc['objet']}</td>
-                        <td>{nc['type']}</td>
-                        <td>{nc['description']}</td>
-                        <td>{nc['status']}</td>
-                        <td>{nc['created_at']}</td>
-                        <td>{photo_html}</td>
-                        <td>
-                            <button onclick="alert('Édition de la non-conformité {nc['id']}')">✏️ Éditer</button>
-                        </td>
-                    </tr>
+                <tr>
+                    <td>{nc['objet']}</td>
+                    <td>{nc['type']}</td>
+                    <td>{nc['description']}</td>
+                    <td>{nc['status']}</td>
+                    <td>{nc['created_at']}</td>
+                    <td>{photo_html}</td>
+                    <td><button onclick="alert('Modifier {nc['id']}')">✏️ Éditer</button></td>
+                </tr>
                 """
 
             table_html += "</tbody></table>"
 
-            # Affichage du tableau HTML
-            st.markdown(table_html, unsafe_allow_html=True)
+            # Afficher le tableau avec CSS
+            st.markdown(table_css + table_html, unsafe_allow_html=True)
         else:
             st.info("Aucune non-conformité trouvée.")
 
@@ -210,4 +199,3 @@ else:
         if st.button("Déconnexion"):
             st.session_state.user = None
             st.experimental_rerun()
-
