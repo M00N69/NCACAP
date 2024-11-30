@@ -227,17 +227,8 @@ elif menu == "Tableau de Bord":
         st.markdown(table_css + table_html, unsafe_allow_html=True)
     else:
         st.info("Aucune non-conformité trouvée.")
-    elif menu == "Vue Analytique":
-        st.header("📈 Vue Analytique")
-        response = supabase.table("non_conformites").select("*").execute()
-        non_conformities = response.data
-        if non_conformities:
-            types = [nc["type"] for nc in non_conformities]
-            type_counts = pd.Series(types).value_counts()
 
-            fig, ax = plt.subplots()
-            type_counts.plot(kind="bar", ax=ax, color=["#007BFF", "#28a745", "#dc3545"])
-            st.pyplot(fig)
+
 
     elif menu == "Profil":
         st.header("Profil Utilisateur")
