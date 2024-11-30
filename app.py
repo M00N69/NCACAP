@@ -127,33 +127,55 @@ else:
         if non_conformities:
             st.write("### Liste des Non-Conformités")
 
-            # Affichage dynamique des non-conformités
+            # Affichage dynamique des non-conformités sous forme de cartes
             for nc in non_conformities:
-                st.markdown("---")  # Séparateur visuel pour chaque non-conformité
+                st.markdown("---")
+                st.markdown(
+                    f"""
+                    <div style="border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #f9f9f9;">
+                        <h4>{nc['objet']} ({nc['type']})</h4>
+                        <p><strong>Description :</strong> {nc['description']}</p>
+                        <p><strong>Statut :</strong> {nc['status']}</p>
+                        <p><strong>Créé le :</strong> {nc['created_at']}</p>
+                        <div>
+                            {"".join([f"<img src='{url}' style='width: 80px; margin-right: 10px; border-radius: 5px;'>" for url in nc['photos']])}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-                # Afficher les informations principales
-                st.markdown(f"**Objet**: {nc['objet']}")
-                st.markdown(f"**Type**: {nc['type']}")
-                st.markdown(f"**Description**: {nc['description']}")
-                st.markdown(f"**Statut**: {nc['status']}")
-                st.markdown(f"**Créé le**: {nc['created_at']}")
+                # Actions Correctives
+                st.markdown("#### Actions Correctives")
+                actions = supabase.table("actions_correctives").select("*").eq("non_conformite_id", nc["id"]).execute().data
+                if actions:
+                    for action in actions:
+                        st.write(f"- **Action**: {action['action']} (Responsable: {action['responsable']}, Échéance: {action['delai']})")
+                else:
+                    st.info("Aucune action corrective enregistrée.")
 
-                # Afficher les photos en miniatures
-                if nc["photos"]:
-                    st.markdown("**Photos:**")
-                    photo_cols = st.columns(len(nc["photos"]))  # Colonnes dynamiques pour les photos
-                    for idx, photo_url in enumerate(nc["photos"]):
-                        with photo_cols[idx]:
-                            st.image(photo_url, width=100)
-
-                # Actions pour chaque non-conformité
-                col1, col2 = st.columns([1, 1])
+                # Boutons d'action
+                col1, col2 = st.columns(2)
                 with col1:
                     if st.button(f"✏️ Éditer - {nc['id']}"):
-                        st.info(f"Édition en cours pour {nc['objet']}.")
+                        st.info(f"Formulaire d'édition pour {nc['objet']} non implémenté.")
                 with col2:
-                    if st.button(f"❌ Supprimer - {nc['id']}"):
-                        st.warning(f"Non-conformité {nc['objet']} supprimée (simulation).")
+                    if st.button(f"➕ Ajouter une Action Corrective - {nc['id']}"):
+                        with st.form(f"add_action_{nc['id']}"):
+                            new_action = st.text_input("Nouvelle Action")
+                            responsable = st.text_input("Responsable")
+                            due_date = st.date_input("Échéance")
+                            submit_action = st.form_submit_button("Enregistrer")
+                            if submit_action:
+                                # Sauvegarde de l'action corrective
+                                supabase.table("actions_correctives").insert({
+                                    "non_conformite_id": nc["id"],
+                                    "action": new_action,
+                                    "responsable": responsable,
+                                    "delai": due_date.isoformat(),
+                                    "created_at": datetime.datetime.utcnow().isoformat()
+                                }).execute()
+                                st.success("Action corrective ajoutée avec succès !")
         else:
             st.info("Aucune non-conformité trouvée.")
 
